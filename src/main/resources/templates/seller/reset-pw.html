@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Seller Password | Portfolio Mall</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="/items">Portfolio Mall</a>
+    <p class="subtitle">Seller Info Page</p>
+    <nav class="nav">
+        <a href="/items">상품</a>
+        <a href="/search">검색</a>
+        <a href="/user/basket">장바구니</a>
+        <a href="/user/orders">내 주문</a>
+        <a href="/user/profile">내 정보</a>
+        <a href="/user/login">유저 로그인</a>
+    </nav>
+    <nav class="nav nav-secondary">
+        <a href="/seller/items">판매자 상품</a>
+        <a href="/seller/orders">판매자 주문</a>
+        <a href="/seller/profile">판매자 정보</a>
+        <a href="/seller/login">판매자 로그인</a>
+    </nav>
+</header>
+<main class="container">
+    <h1>판매자 비밀번호 재설정</h1>
+    <section class="card">
+        <form class="form">
+            <label><span>아이디</span><input type="text" name="id" placeholder="아이디"></label>
+            <label><span>사업자 등록번호</span><input type="text" name="storeBrn" placeholder="BRN"></label>
+            <label><span>새 비밀번호</span><input type="password" name="newPassword" placeholder="새 비밀번호"></label>
+            <button type="submit">비밀번호 재설정</button>
+        </form>
+        <p class="hint">v1에서는 페이지 틀만 만들고, 실제 인증 절차는 v2로 미뤄도 됩니다.</p>
+    </section>
+</main>
+<footer class="site-footer">Spring Boot + Thymeleaf + PostgreSQL side project</footer>
+
+</body>
+</html>

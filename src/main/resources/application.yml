@@ -1,17 +1,17 @@
 spring:
   application:
     name: portfolio
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/portfolio_db
-    username: portfolio_user
-    password: portfolio_password
+    url: jdbc:postgresql://localhost:5433/personal_db
+    username: personal_user
+    password: personal_password
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: true
     properties:
+      open-in-view: false
       hibernate:
         format_sql: true
+        ddl-auto: validate

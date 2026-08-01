@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Order Detail | Portfolio Mall</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="/items">Portfolio Mall</a>
+    <p class="subtitle">Seller Order Page</p>
+    <nav class="nav">
+        <a href="/items">상품</a>
+        <a href="/search">검색</a>
+        <a href="/user/basket">장바구니</a>
+        <a href="/user/orders">내 주문</a>
+        <a href="/user/profile">내 정보</a>
+        <a href="/user/login">유저 로그인</a>
+    </nav>
+    <nav class="nav nav-secondary">
+        <a href="/seller/items">판매자 상품</a>
+        <a href="/seller/orders">판매자 주문</a>
+        <a href="/seller/profile">판매자 정보</a>
+        <a href="/seller/login">판매자 로그인</a>
+    </nav>
+</header>
+<main class="container">
+    <h1>판매자 주문 상세</h1>
+    <section class="card">
+        <p>주문 번호: <strong th:text="${orderId}">1</strong></p>
+        <dl class="description-list"><dt>주문 상태</dt><dd>CREATED</dd><dt>송장 정보</dt><dd>미등록</dd><dt>환불 상태</dt><dd>요청 없음</dd></dl>
+        <form class="form">
+            <label><span>택배사 코드</span><input type="text" name="courierCode" placeholder="CJ대한통운 등"></label>
+            <label><span>송장번호</span><input type="text" name="trackingNumber" placeholder="송장번호"></label>
+            <button type="button">주문 확인</button>
+            <button type="button" class="button-secondary">배송 준비 시작</button>
+            <button type="button" class="button-secondary">송장 등록</button>
+            <button type="button" class="button-secondary">배송중 처리</button>
+            <button type="button" class="button-danger">반품 승인</button>
+            <button type="button" class="button-danger">환불 처리</button>
+        </form>
+        <p class="hint">API 예정: <code>POST /api/seller/orders/{orderId}/shipment</code>, <code>POST /api/seller/orders/{orderId}/refund</code></p>
+    </section>
+</main>
+<footer class="site-footer">Spring Boot + Thymeleaf + PostgreSQL side project</footer>
+<script th:inline="javascript">
+    const orderId = /*[[${orderId}]]*/ 1;
+    console.log("seller orderId:", orderId);
+</script>
+</body>
+</html>

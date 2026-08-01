@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Seller Item | Portfolio Mall</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="/items">Portfolio Mall</a>
+    <p class="subtitle">Seller Item Page</p>
+    <nav class="nav">
+        <a href="/items">상품</a>
+        <a href="/search">검색</a>
+        <a href="/user/basket">장바구니</a>
+        <a href="/user/orders">내 주문</a>
+        <a href="/user/profile">내 정보</a>
+        <a href="/user/login">유저 로그인</a>
+    </nav>
+    <nav class="nav nav-secondary">
+        <a href="/seller/items">판매자 상품</a>
+        <a href="/seller/orders">판매자 주문</a>
+        <a href="/seller/profile">판매자 정보</a>
+        <a href="/seller/login">판매자 로그인</a>
+    </nav>
+</header>
+<main class="container">
+    <h1>상품 등록</h1>
+    <section class="card">
+        <form class="form" id="sellerItemCreateForm">
+            <label><span>상품명</span><input type="text" name="itemName" placeholder="상품명"></label>
+            <label><span>가격</span><input type="number" name="price" min="0" placeholder="가격"></label>
+            <label><span>배송 유형</span><select name="deliveryType"><option value="PARCEL">택배</option><option value="DIRECT">직접 배송</option></select></label>
+            <label><span>대표 이미지 JSON</span><textarea name="mainImages" rows="3" placeholder='["image-url"]'></textarea></label>
+            <label><span>상세 파일 JSON</span><textarea name="describeFile" rows="3" placeholder='{"type":"html","path":"..."}'></textarea></label>
+            <label><span>판매 가능 수량</span><input type="number" name="available" min="0" value="0"></label>
+            <button type="submit">상품 등록</button>
+        </form>
+        <p class="hint">API 예정: <code>POST /api/seller/items</code></p>
+    </section>
+</main>
+<footer class="site-footer">Spring Boot + Thymeleaf + PostgreSQL side project</footer>
+
+</body>
+</html>
