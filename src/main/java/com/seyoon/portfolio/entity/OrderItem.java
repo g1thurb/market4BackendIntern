@@ -13,11 +13,13 @@ public class OrderItem {
     @Column(name = "order_item_id", nullable = false)
     private Long orderItemId;
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private OrderEntity orderEntity;
 
-    @Column(name = "item_code", nullable = false)
-    private Long itemCode;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "item_code", nullable = false)
+    private Item item;
 
     @Column(name = "quantity", nullable = false)
     private int quantity;
@@ -25,25 +27,25 @@ public class OrderItem {
     @Column(name = "unit_price_at_purchase", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPriceAtPurchase;
 
-    protected  OrderItem() {}
+    protected OrderItem() {}
 
-    private OrderItem(Long orderId, Long itemCode, int quantity, BigDecimal unitPriceAtPurchase) {
-        this.orderId = orderId;
-        this.itemCode = itemCode;
+    private OrderItem(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase) {
+        this.orderEntity = orderEntity;
+        this.item = item;
         this.quantity = quantity;
         this.unitPriceAtPurchase = unitPriceAtPurchase;
     }
 
-    public static OrderItem create(Long orderId, Long itemCode, int quantity, BigDecimal unitPriceAtPurchase) {
-        return new OrderItem(orderId, itemCode, quantity, unitPriceAtPurchase);
+    public static OrderItem create(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase) {
+        return new OrderItem(orderEntity, item, quantity, unitPriceAtPurchase);
     }
 
     //getter
     public Long getOrderItemId() {return orderItemId;}
 
-    public Long getOrderId() {return orderId;}
+    public OrderEntity getOrderEntity() {return orderEntity;}
 
-    public Long getItemCode() {return itemCode;}
+    public Item getItem() {return item;}
 
     public int getQuantity() {return quantity;}
 

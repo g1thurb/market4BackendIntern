@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.UUID;
+
+import com.seyoon.portfolio.entity.type.CheckoutStatus;
 
 @Entity
 @Table(name = "checkouts")
@@ -15,14 +16,16 @@ public class Checkout {
     @Column(name = "checkout_id", nullable = false)
     private Long checkoutId;
 
-    @Column(name = "user_uuid", nullable = false)
-    private UUID userUuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_uuid", nullable = false)
+    private UserInfo userInfo;
 
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "checkout_status", nullable = false, length = 30)
-    private String checkoutStatus;
+    private CheckoutStatus checkoutStatus;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -32,27 +35,27 @@ public class Checkout {
 
     protected Checkout() {}
 
-    private Checkout(UUID userUuid, BigDecimal totalAmount, String checkoutStatus) {
+    private Checkout(UserInfo userInfo, BigDecimal totalAmount, CheckoutStatus checkoutStatus) {
         OffsetDateTime now = OffsetDateTime.now();
 
-        this.userUuid = userUuid;
+        this.userInfo = userInfo;
         this.totalAmount = totalAmount;
         this.checkoutStatus = checkoutStatus;
         this.createdAt = now;
         this.updatedAt = now;
     }
 
-    public static Checkout create(UUID userUuid, BigDecimal totalAmount, String checkoutStatus) {
-        return new Checkout(userUuid, totalAmount, checkoutStatus);
+    public static Checkout create(UserInfo userInfo, BigDecimal totalAmount, CheckoutStatus checkoutStatus) {
+        return new Checkout(userInfo, totalAmount, checkoutStatus);
     }
 
     public Long getCheckoutId() {return checkoutId;}
 
-    public UUID getUserUuid() {return userUuid;}
+    public UserInfo getUserInfo() {return userInfo;}
 
     public BigDecimal getTotalAmount() {return totalAmount;}
 
-    public String getCheckoutStatus() {return checkoutStatus;}
+    public CheckoutStatus getCheckoutStatus() {return checkoutStatus;}
 
     public OffsetDateTime getCreatedAt() {return createdAt;}
 

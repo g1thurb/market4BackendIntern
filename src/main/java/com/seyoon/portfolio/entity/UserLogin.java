@@ -1,9 +1,7 @@
 package com.seyoon.portfolio.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import java.util.UUID;
 
 @Entity
@@ -17,19 +15,20 @@ public class UserLogin {
     @Column(name = "password_crypted", nullable = false)
     private String passwordCrypted;
 
-    @Column(name = "uuid", nullable = false, unique = true)
-    private UUID uuid;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "uuid", nullable = false)
+    private UserInfo userInfo;
 
     protected UserLogin() {}
 
-    private UserLogin(String id, String passwordCrypted, UUID uuid) {
+    private UserLogin(String id, String passwordCrypted, UserInfo userInfo) {
         this.id = id;
         this.passwordCrypted = passwordCrypted;
-        this.uuid = uuid;
+        this.userInfo = userInfo;
     }
 
-    public static UserLogin create(String id, String passwordCrypted, UUID uuid){
-        return new  UserLogin(id, passwordCrypted, uuid);
+    public static UserLogin create(String id, String passwordCrypted, UserInfo userInfo){
+        return new UserLogin(id, passwordCrypted, userInfo);
     }
 
     public String getId() {
@@ -40,7 +39,7 @@ public class UserLogin {
         return passwordCrypted;
     }
 
-    public UUID getUuid() {
-        return uuid;
+    public UserInfo getUserInfo() {
+        return userInfo;
     }
 }

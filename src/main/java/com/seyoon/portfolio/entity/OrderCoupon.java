@@ -1,25 +1,30 @@
 package com.seyoon.portfolio.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import com.seyoon.portfolio.entity.type.DiscountTypeSnapshot;
 
 @Entity
 @Table(name = "order_coupons")
 public class OrderCoupon {
 
     @Id
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id")
     private Long orderId;
 
-    @Column(name = "coupon_code", nullable = false, length = 20)
-    private  String couponCode;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @MapsId//이 Entity의 PK를 저 연관 객체의 PK와 똑같이 써라
+    @JoinColumn(name = "order_id")
+    private OrderEntity orderEntity;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "coupon_code", nullable = false)
+    private  Coupon coupon;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "discount_type_snapshot", nullable = false, length = 10)
-    private  String discountTypeSnapshot;
+    private  DiscountTypeSnapshot discountTypeSnapshot;
 
     @Column(name = "discount_amount_snapshot", nullable = false, precision = 12, scale = 2)
     private BigDecimal discountAmountSnapshot;
@@ -32,27 +37,28 @@ public class OrderCoupon {
 
     protected  OrderCoupon() {}
 
-    private OrderCoupon(Long orderId, String couponCode,String discountTypeSnapshot, BigDecimal discountAmountSnapshot,
+    private OrderCoupon(OrderEntity orderEntity, Coupon coupon,DiscountTypeSnapshot discountTypeSnapshot, BigDecimal discountAmountSnapshot,
                         BigDecimal discountLimitSnapshot, BigDecimal appliedDiscountAmount) {
-        this.orderId = orderId;
-        this.couponCode = couponCode;
+        this.orderEntity = orderEntity;
+        this.coupon = coupon;
         this.discountTypeSnapshot = discountTypeSnapshot;
         this.discountAmountSnapshot = discountAmountSnapshot;
         this.discountLimitSnapshot = discountLimitSnapshot;
         this.appliedDiscountAmount = appliedDiscountAmount;
     }
 
-    public static OrderCoupon create(Long orderId, String couponCode, String discountTypeSnapshot, BigDecimal discountAmountSnapshot,
-                                     BigDecimal discountLimitSnapshot, BigDecimal appliedDiscountAmount) {
-        return new OrderCoupon(orderId, couponCode, discountTypeSnapshot, discountAmountSnapshot,
+    public static OrderCoupon create(OrderEntity orderEntity, Coupon coupon, DiscountTypeSnapshot discountTypeSnapshot,
+                                     BigDecimal discountAmountSnapshot, BigDecimal discountLimitSnapshot,
+                                     BigDecimal appliedDiscountAmount) {
+        return new OrderCoupon(orderEntity, coupon, discountTypeSnapshot, discountAmountSnapshot,
                                 discountLimitSnapshot, appliedDiscountAmount);
     }
 
-    public Long getOrderId() {return orderId;}
+    public OrderEntity getOrderEntity() {return orderEntity;}
 
-    public String getCouponCode() {return couponCode;}
+    public Coupon getCoupon() {return coupon;}
 
-    public String getDiscountTypeSnapshot() {return discountTypeSnapshot;}
+    public DiscountTypeSnapshot getDiscountTypeSnapshot() {return discountTypeSnapshot;}
 
     public BigDecimal getDiscountAmountSnapshot() {return discountAmountSnapshot;}
 

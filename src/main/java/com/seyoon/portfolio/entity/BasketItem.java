@@ -11,32 +11,34 @@ public class BasketItem {
     @Column(name = "basket_item_id", nullable = false)
     private Long basketItemId;
 
-    @Column(name = "basket_id", nullable = false)
-    private Long basketId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "basket_id", nullable = false)
+    private UserBasket userBasket;
 
-    @Column(name = "item_id", nullable = false)
-    private Long itemId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "item_id", nullable = false)
+    private Item item;
 
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
     protected BasketItem() {}
 
-    private BasketItem(Long basketId, Long itemId, int quantity) {
-        this.basketId = basketId;
-        this.itemId = itemId;
+    private BasketItem(UserBasket userBasket, Item item, int quantity) {
+        this.userBasket = userBasket;
+        this.item = item;
         this.quantity = quantity;
     }
 
-    public static BasketItem create(Long basketId, Long itemId, int quantity) {
-        return new BasketItem(basketId, itemId, quantity);
+    public static BasketItem create(UserBasket userBasket, Item item, int quantity) {
+        return new BasketItem(userBasket, item, quantity);
     }
 
     public Long getBasketItemId() {return basketItemId;}
 
-    public Long getBasketId() {return basketId;}
+    public UserBasket getUserBasket() {return userBasket;}
 
-    public Long getItemId() {return itemId;}
+    public Item getItem() {return item;}
 
     public int getQuantity() {return quantity;}
 }

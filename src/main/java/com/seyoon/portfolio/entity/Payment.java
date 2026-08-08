@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
+import com.seyoon.portfolio.entity.type.PaymentStatus;
+
 @Entity
 @Table(name = "payments")
 public class Payment {
@@ -14,8 +16,9 @@ public class Payment {
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
 
-    @Column(name = "checkout_id", nullable = false)
-    private Long checkoutId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "checkout_id", nullable = false)
+    private Checkout checkout;
 
     @Column(name = "payment_provider", nullable = false, length = 30)
     private String paymentProvider;
@@ -32,8 +35,9 @@ public class Payment {
     @Column(name = "amount_captured", nullable = false, precision = 12, scale = 2)
     private BigDecimal amountCaptured;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false, length = 30)
-    private String paymentStatus;
+    private PaymentStatus paymentStatus;
 
     @Column(name = "provider_tx_id", length = 100)
     private String providerTxId;
@@ -46,11 +50,11 @@ public class Payment {
 
     protected Payment() {}
 
-    private Payment(Long checkoutId, String paymentProvider, String paymentMethod, short installmentMonths,
-                    BigDecimal amountAuthorized, BigDecimal amountCaptured, String paymentStatus, String providerTxId) {
+    private Payment(Checkout checkout, String paymentProvider, String paymentMethod, short installmentMonths,
+                    BigDecimal amountAuthorized, BigDecimal amountCaptured, PaymentStatus paymentStatus, String providerTxId) {
         OffsetDateTime now = OffsetDateTime.now();
 
-        this.checkoutId = checkoutId;
+        this.checkout = checkout;
         this.paymentProvider = paymentProvider;
         this.paymentMethod = paymentMethod;
         this.installmentMonths = installmentMonths;
@@ -62,15 +66,15 @@ public class Payment {
         this.updatedAt = now;
     }
 
-    public static Payment create(Long checkoutId, String paymentProvider, String paymentMethod, short installmentMonths,
-                                 BigDecimal amountAuthorized, BigDecimal amountCaptured, String paymentStatus, String providerTxId){
-        return new Payment(checkoutId, paymentProvider, paymentMethod, installmentMonths, amountAuthorized,
+    public static Payment create(Checkout checkout, String paymentProvider, String paymentMethod, short installmentMonths,
+                                 BigDecimal amountAuthorized, BigDecimal amountCaptured, PaymentStatus paymentStatus, String providerTxId){
+        return new Payment(checkout, paymentProvider, paymentMethod, installmentMonths, amountAuthorized,
                 amountCaptured, paymentStatus, providerTxId);
     }
 
     public Long getPaymentId() {return paymentId;}
 
-    public Long getCheckoutId() {return checkoutId;}
+    public Checkout getCheckout() {return checkout;}
 
     public String getPaymentProvider() {return paymentProvider;}
 
@@ -82,7 +86,7 @@ public class Payment {
 
     public BigDecimal getAmountCaptured() {return amountCaptured;}
 
-    public String getPaymentStatus() {return paymentStatus;}
+    public PaymentStatus getPaymentStatus() {return paymentStatus;}
 
     public String getProviderTxId() {return providerTxId;}
 

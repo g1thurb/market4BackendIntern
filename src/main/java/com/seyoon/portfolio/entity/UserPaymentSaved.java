@@ -1,16 +1,11 @@
 package com.seyoon.portfolio.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Entity
 @Table(name = "user_payment_saved")
@@ -21,8 +16,9 @@ public class UserPaymentSaved {
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
 
-    @Column(name = "uuid", nullable = false)
-    private UUID uuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "uuid", nullable = false)
+    private UserInfo userInfo;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(
@@ -36,29 +32,30 @@ public class UserPaymentSaved {
     }
 
     private UserPaymentSaved(
-            UUID uuid,
+            UserInfo userInfo,
             Map<String, Object> paymentEncryptedData
     ) {
-        this.uuid = uuid;
-        this.paymentEncryptedData = paymentEncryptedData;
+        this.userInfo = userInfo;
+        this.paymentEncryptedData = new HashMap<>(paymentEncryptedData);
     }
 
     public static UserPaymentSaved create(
-            UUID uuid,
+            UserInfo userInfo,
             Map<String, Object> paymentEncryptedData
     ) {
-        return new UserPaymentSaved(uuid, paymentEncryptedData);
+        return new UserPaymentSaved(userInfo, paymentEncryptedData);
     }
 
     public Long getPaymentId() {
         return paymentId;
     }
 
-    public UUID getUuid() {
-        return uuid;
+    public UserInfo getUserInfo() {
+        return userInfo;
     }
 
     public Map<String, Object> getPaymentEncryptedData() {
-        return paymentEncryptedData;
+        return new HashMap<>(paymentEncryptedData);
     }
+    //paymentEncryptedData == null이면 NullPointerException이 나니까, 그때 null을 아예 금지할지 아니면 빈 Map으로 바꿀지 정책을 정하기
 }

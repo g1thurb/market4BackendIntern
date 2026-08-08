@@ -1,11 +1,6 @@
 package com.seyoon.portfolio.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
+import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -22,8 +17,9 @@ public class Item {
     @Column(name = "item_code", nullable = false)
     private Long itemCode;
 
-    @Column(name = "store_uuid", nullable = false)
-    private UUID storeUuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "store_uuid", nullable = false)
+    private SellerInfo sellerInfo;
 
     @Column(name = "item_name", nullable = false, length = 150)
     private String itemName;
@@ -35,7 +31,7 @@ public class Item {
     private OffsetDateTime uploadDate;
 
     @Column(name = "delivery_type", nullable = false, length = 30)
-    private String deliveryType;
+    private String deliveryType;//복잡한게 많아 보여서 프로그램 내에서 자동완성 저장 해뒀다가 추후에 data 보고 enum 여부 결정
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "main_images", nullable = false, columnDefinition = "jsonb")
@@ -50,9 +46,9 @@ public class Item {
 
     protected Item() {}
 
-    private Item(UUID storeUuid, String itemName, BigDecimal price, OffsetDateTime uploadDate, String deliveryType,
+    private Item(SellerInfo sellerInfo, String itemName, BigDecimal price, OffsetDateTime uploadDate, String deliveryType,
                  List<String> mainImages, Map<String, Object> describeFile, int available) {
-        this.storeUuid = storeUuid;
+        this.sellerInfo = sellerInfo;
         this.itemName = itemName;
         this.price = price;
         this.uploadDate = uploadDate;
@@ -65,14 +61,14 @@ public class Item {
         this.available = available;
     }
 
-    public static Item create(UUID storeUuid, String itemName, BigDecimal price, String deliveryType,
+    public static Item create(SellerInfo sellerInfo, String itemName, BigDecimal price, String deliveryType,
                               List<String> mainImages, Map<String, Object> describeFile, int available) {
-        return new Item(storeUuid, itemName, price, OffsetDateTime.now(), deliveryType, mainImages, describeFile, available);
+        return new Item(sellerInfo, itemName, price, OffsetDateTime.now(), deliveryType, mainImages, describeFile, available);
     }
 
     public Long getItemCode() {return itemCode;}
 
-    public UUID getStoreUuid() {return storeUuid;}
+    public SellerInfo getSellerInfo() {return sellerInfo;}
 
     public String getItemName() {return itemName;}
 

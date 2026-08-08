@@ -3,7 +3,10 @@ package com.seyoon.portfolio.entity;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
+
+import com.seyoon.portfolio.entity.type.OrderStatus;
+import com.seyoon.portfolio.entity.type.DeliveredMarkedBy;
+import com.seyoon.portfolio.entity.type.ConfirmedBy;
 
 @Entity
 @Table(name = "orders")
@@ -14,17 +17,21 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
-    @Column(name = "checkout_id", nullable = false)
-    private Long checkoutId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "checkout_id", nullable = false)
+    private Checkout checkout;
 
-    @Column(name = "user_uuid", nullable = false)
-    private UUID userUuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_uuid", nullable = false)
+    private UserInfo userInfo;
 
-    @Column(name = "store_uuid", nullable = false)
-    private UUID storeUuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "store_uuid", nullable = false)
+    private SellerInfo sellerInfo;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private OrderStatus orderStatus;
 
     @Column(name = "ordered_at", nullable = false)
     private OffsetDateTime orderedAt;
@@ -38,8 +45,9 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "delivered_date")
     private OffsetDateTime deliveredDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "delivered_marked_by", length = 20)
-    private String deliveredMarkedBy;
+    private DeliveredMarkedBy deliveredMarkedBy;
 
     @Column(name = "confirm_deadline_date")
     private OffsetDateTime confirmDeadlineDate;
@@ -50,8 +58,9 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "confirm_date")
     private OffsetDateTime confirmDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "confirmed_by", length = 10)
-    private String confirmedBy;
+    private ConfirmedBy confirmedBy;
 
     @Version
     @Column(name = "version", nullable = false)
@@ -59,14 +68,14 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
 
     protected OrderEntity() {}
 
-    private OrderEntity(Long checkoutId, UUID userUuid, UUID storeUuid, String status, String courierCode,
-                  String trackingNumber,  OffsetDateTime deliveredDate, String deliveredMarkedBy,
+    private OrderEntity(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus, String courierCode,
+                  String trackingNumber,  OffsetDateTime deliveredDate, DeliveredMarkedBy deliveredMarkedBy,
                   OffsetDateTime confirmDeadlineDate, boolean confirmExtended,
-                  OffsetDateTime confirmDate, String confirmedBy) {
-        this.checkoutId = checkoutId;
-        this.userUuid = userUuid;
-        this.storeUuid = storeUuid;
-        this.status = status;
+                  OffsetDateTime confirmDate, ConfirmedBy confirmedBy) {
+        this.checkout = checkout;
+        this.userInfo = userInfo;
+        this.sellerInfo = sellerInfo;
+        this.orderStatus = orderStatus;
         this.orderedAt = OffsetDateTime.now();
         this.courierCode = courierCode;
         this.trackingNumber = trackingNumber;
@@ -78,24 +87,24 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
         this.confirmedBy = confirmedBy;
     }
 
-    public static OrderEntity create(Long checkoutId, UUID userUuid, UUID storeUuid, String status, String courierCode,
-                               String trackingNumber,  OffsetDateTime deliveredDate, String deliveredMarkedBy,
-                               OffsetDateTime confirmDeadlineDate, boolean confirmExtended,
-                               OffsetDateTime confirmDate, String confirmedBy) {
-        return new OrderEntity(checkoutId, userUuid, storeUuid, status, courierCode, trackingNumber, deliveredDate,
+    public static OrderEntity create(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus,
+                                     String courierCode, String trackingNumber,  OffsetDateTime deliveredDate,
+                                     DeliveredMarkedBy deliveredMarkedBy, OffsetDateTime confirmDeadlineDate,
+                                     boolean confirmExtended, OffsetDateTime confirmDate, ConfirmedBy confirmedBy) {
+        return new OrderEntity(checkout, userInfo, sellerInfo, orderStatus, courierCode, trackingNumber, deliveredDate,
                 deliveredMarkedBy, confirmDeadlineDate, confirmExtended, confirmDate, confirmedBy);
     }
 
     //Getter
     public Long getOrderId() {return orderId;}
 
-    public Long getCheckoutId() {return checkoutId;}
+    public Checkout getCheckout() {return checkout;}
 
-    public UUID getUserUuid() {return userUuid;}
+    public UserInfo getUserInfo() {return userInfo;}
 
-    public UUID getStoreUuid() {return storeUuid;}
+    public SellerInfo getSellerInfo() {return sellerInfo;}
 
-    public String getStatus() {return status;}
+    public OrderStatus getOrderStatus() {return orderStatus;}
 
     public OffsetDateTime getOrderedAt() {return orderedAt;}
 
@@ -105,7 +114,7 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
 
     public OffsetDateTime getDeliveredDate() {return deliveredDate;}
 
-    public String getDeliveredMarkedBy() {return deliveredMarkedBy;}
+    public DeliveredMarkedBy getDeliveredMarkedBy() {return deliveredMarkedBy;}
 
     public OffsetDateTime getConfirmDeadlineDate() {return confirmDeadlineDate;}
 
@@ -113,7 +122,7 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
 
     public OffsetDateTime getConfirmDate() {return confirmDate;}
 
-    public String getConfirmedBy() {return confirmedBy;}
+    public ConfirmedBy getConfirmedBy() {return confirmedBy;}
 
     public Long getVersion() {return version;}
 }

@@ -6,6 +6,10 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import com.seyoon.portfolio.entity.type.RefundType;
+import com.seyoon.portfolio.entity.type.RefundStatus;
+import com.seyoon.portfolio.entity.type.RequestedByType;
+
 @Entity
 @Table(name = "refunds")
 public class Refund {
@@ -15,14 +19,17 @@ public class Refund {
     @Column(name = "refund_id", nullable = false)
     private Long refundId;
 
-    @Column(name = "payment_id", nullable = false)
-    private Long paymentId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "payment_id", nullable = false)
+    private Payment payment;
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private OrderEntity orderEntity;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "refund_type", nullable = false, length = 30)
-    private String refundType;
+    private RefundType refundType;
 
     @Column(name = "refund_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal refundAmount;
@@ -33,11 +40,13 @@ public class Refund {
     @Column(name = "deduction_reason", length = 50)
     private String deductionReason;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "refund_status", nullable = false, length = 20)
-    private String refundStatus;
+    private RefundStatus refundStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "requested_by_type", nullable = false, length = 20)
-    private String requestedByType;
+    private RequestedByType requestedByType;
 
     @Column(name = "requested_by_uuid")
     private UUID requestedByUuid;
@@ -56,13 +65,13 @@ public class Refund {
 
     protected Refund() {}
 
-    private Refund(Long paymentId, Long orderId, String refundType, BigDecimal refundAmount, BigDecimal deductionAmount,
-                   String deductionReason, String refundStatus, String requestedByType, UUID requestedByUuid, String reason,
-                   OffsetDateTime doneAt, String providerRefundId) {
+    private Refund(Payment payment, OrderEntity orderEntity, RefundType refundType, BigDecimal refundAmount,
+                   BigDecimal deductionAmount, String deductionReason, RefundStatus refundStatus, RequestedByType requestedByType,
+                   UUID requestedByUuid, String reason, OffsetDateTime doneAt, String providerRefundId) {
         OffsetDateTime now =  OffsetDateTime.now();
 
-        this.paymentId = paymentId;
-        this.orderId = orderId;
+        this.payment =  payment;
+        this.orderEntity = orderEntity;
         this.refundType = refundType;
         this.refundAmount = refundAmount;
         this.deductionAmount = deductionAmount;
@@ -76,20 +85,21 @@ public class Refund {
         this.providerRefundId = providerRefundId;
     }
 
-    public static Refund create(Long paymentId, Long orderId, String refundType, BigDecimal refundAmount, BigDecimal deductionAmount,
-                                String deductionReason, String refundStatus, String requestedByType, UUID requestedByUuid, String reason,
+    public static Refund create(Payment payment, OrderEntity orderEntity, RefundType refundType, BigDecimal refundAmount,
+                                BigDecimal deductionAmount, String deductionReason, RefundStatus refundStatus,
+                                RequestedByType requestedByType, UUID requestedByUuid, String reason,
                                 OffsetDateTime doneAt, String providerRefundId) {
-        return new Refund(paymentId, orderId, refundType, refundAmount, deductionAmount, deductionReason, refundStatus,
+        return new Refund(payment, orderEntity, refundType, refundAmount, deductionAmount, deductionReason, refundStatus,
                 requestedByType, requestedByUuid, reason, doneAt, providerRefundId);
     }
 
     public Long getRefundId() {return refundId;}
 
-    public Long getPaymentId() {return paymentId;}
+    public Payment getPayment() {return payment;}
 
-    public Long getOrderId() {return orderId;}
+    public OrderEntity getOrderEntity() {return orderEntity;}
 
-    public String getRefundType() {return refundType;}
+    public RefundType getRefundType() {return refundType;}
 
     public BigDecimal getRefundAmount() {return refundAmount;}
 
@@ -97,9 +107,9 @@ public class Refund {
 
     public String getDeductionReason() {return deductionReason;}
 
-    public String getRefundStatus() {return refundStatus;}
+    public RefundStatus getRefundStatus() {return refundStatus;}
 
-    public String getRequestedByType() {return requestedByType;}
+    public RequestedByType getRequestedByType() {return requestedByType;}
 
     public UUID getRequestedByUuid() {return requestedByUuid;}
 

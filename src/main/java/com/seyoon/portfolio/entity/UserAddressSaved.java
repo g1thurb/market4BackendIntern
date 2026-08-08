@@ -1,13 +1,6 @@
 package com.seyoon.portfolio.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
-import java.util.UUID;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "user_address_saved")
@@ -18,8 +11,9 @@ public class UserAddressSaved {
     @Column(name = "address_id", nullable = false)
     private Long addressId;
 
-    @Column(name = "uuid", nullable = false)
-    private UUID uuid;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "uuid", nullable = false)
+    private UserInfo userInfo;
 
     @Column(name = "address", nullable = false, length = 255)
     private String address;
@@ -27,21 +21,21 @@ public class UserAddressSaved {
     protected UserAddressSaved() {
     }
 
-    private UserAddressSaved(UUID uuid, String address) {
-        this.uuid = uuid;
+    private UserAddressSaved(UserInfo userInfo, String address) {
+        this.userInfo = userInfo;
         this.address = address;
     }
 
-    public static UserAddressSaved create(UUID uuid, String address) {
-        return new UserAddressSaved(uuid, address);
+    public static UserAddressSaved create(UserInfo userInfo, String address) {
+        return new UserAddressSaved(userInfo, address);
     }
 
     public Long getAddressId() {
         return addressId;
     }
 
-    public UUID getUuid() {
-        return uuid;
+    public UserInfo getUserInfo() {
+        return userInfo;
     }
 
     public String getAddress() {
