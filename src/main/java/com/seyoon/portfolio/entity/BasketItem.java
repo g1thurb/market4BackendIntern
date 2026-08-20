@@ -41,4 +41,9 @@ public class BasketItem {
     public Item getItem() {return item;}
 
     public int getQuantity() {return quantity;}
+
+    public void changeQuantity(int quantity) {
+        if(quantity>0) {this.quantity = quantity;}
+        else {throw new IllegalArgumentException("Quantity must be greater than zero");}
+    }
 }
