@@ -17,6 +17,9 @@ public class UserOrderController {
     public String newOrderPage() {
         return "user/orders/new";
     }
+        //Query parameters (browser JS에서 처리)
+        //- source=basket
+        //- source=item&itemCode={itemCode}&quantity={quantity}
 
     @GetMapping("/user/orders")
     public String orderListPage() {

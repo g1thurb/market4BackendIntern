@@ -68,4 +68,5 @@ public class Coupon {
     public BigDecimal getDiscountLimit() {return discountLimit;}
 
     public OffsetDateTime getDueDate() {return dueDate;}
+
 }

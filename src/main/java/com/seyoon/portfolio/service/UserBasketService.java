@@ -28,8 +28,10 @@ public class UserBasketService {
     private final ItemRepository itemRepository;
     private final UserInfoRepository userInfoRepository;
 
-    public UserBasketService(UserBasketRepository userBasketRepository, BasketItemRepository basketItemRepository,
-                             ItemRepository itemRepository, UserInfoRepository userInfoRepository) {
+    public UserBasketService(UserBasketRepository userBasketRepository,
+                             BasketItemRepository basketItemRepository,
+                             ItemRepository itemRepository,
+                             UserInfoRepository userInfoRepository) {
         this.userBasketRepository = userBasketRepository;
         this.basketItemRepository = basketItemRepository;
         this.itemRepository = itemRepository;

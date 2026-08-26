@@ -3,7 +3,9 @@ package com.seyoon.portfolio.dto.response;
 import java.math.BigDecimal;
 import java.util.List;
 
-public record BasketGetResponse(Long basketId, List<BasketItemResponse> items, BigDecimal totalAmount) {}
+public record BasketGetResponse(Long basketId,
+                                List<BasketItemResponse> items,
+                                BigDecimal totalAmount) {}
 //BasketGetResponse
 //{
 //    "basketId": Long,

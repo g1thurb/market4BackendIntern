@@ -1,6 +1,8 @@
 package com.seyoon.portfolio.controller.advice;
 
 import com.seyoon.portfolio.dto.response.BasketErrorResponse;
+import com.seyoon.portfolio.dto.response.OrderErrorResponse;
+import com.seyoon.portfolio.exception.CouponNotFoundException;
 import com.seyoon.portfolio.exception.InsufficientStockException;
 import com.seyoon.portfolio.exception.InvalidQuantityException;
 import com.seyoon.portfolio.exception.ItemOutOfStockException;
@@ -53,6 +55,17 @@ public class GlobalExceptionHandler {
     ) {
         return new BasketErrorResponse(
                 "NOT_FOUND",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(CouponNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public OrderErrorResponse couponNotFound(
+            CouponNotFoundException exception
+    ) {
+        return new OrderErrorResponse(
+                "COUPON_NOT_FOUND",
                 exception.getMessage()
         );
     }

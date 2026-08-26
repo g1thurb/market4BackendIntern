@@ -2,6 +2,8 @@ package com.seyoon.portfolio.entity;
 
 import jakarta.persistence.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "basket_items")
 public class BasketItem {
@@ -41,6 +43,8 @@ public class BasketItem {
     public Item getItem() {return item;}
 
     public int getQuantity() {return quantity;}
+
+    public UUID getItemStoreUUID() {return item.getSellerInfo().getStoreUuid();}
 
     public void changeQuantity(int quantity) {
         if(quantity>0) {this.quantity = quantity;}
