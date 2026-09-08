@@ -2,10 +2,7 @@ package com.seyoon.portfolio.controller.advice;
 
 import com.seyoon.portfolio.dto.response.BasketErrorResponse;
 import com.seyoon.portfolio.dto.response.OrderErrorResponse;
-import com.seyoon.portfolio.exception.CouponNotFoundException;
-import com.seyoon.portfolio.exception.InsufficientStockException;
-import com.seyoon.portfolio.exception.InvalidQuantityException;
-import com.seyoon.portfolio.exception.ItemOutOfStockException;
+import com.seyoon.portfolio.exception.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -69,4 +66,50 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
     }
+
+    @ExceptionHandler(CouponNotMatchException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public OrderErrorResponse couponNotMatch(
+            CouponNotMatchException exception
+    ) {
+        return new OrderErrorResponse(
+                "COUPON_NOT_MATCH",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(ItemNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public OrderErrorResponse itemNotFound(
+            ItemNotFoundException exception
+    ) {
+        return new OrderErrorResponse(
+                "ITEM_NOT_FOUND",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(PurchaseFailException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public OrderErrorResponse purchaseFail(
+            PurchaseFailException exception
+    ) {
+        return new OrderErrorResponse(
+                "PURCHASE_FAILED",
+                exception.getMessage()
+        );
+    }
 }
+
+
+//TODO
+//한 가지 구조적으로는
+//InvalidQuantityException, ItemOutOfStockException, InsufficientStockException이
+//Basket에서도 Order에서도 사용되는데 BasketErrorResponse를 반환하고 있잖아.
+//public BasketErrorResponse handleInsufficientStock(...)
+//기능상 아무 문제는 없어. JSON 구조도 api + message뿐이니까 잘 동작해.
+//다만 나중에 리팩터링할 때:
+//BasketErrorResponse, OrderErrorResponse
+//둘 다 필드가 똑같다면 그냥:
+//ApiErrorResponse(String api, String message)
+//하나로 합칠 수 있음

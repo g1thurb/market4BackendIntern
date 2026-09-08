@@ -1,5 +1,6 @@
 package com.seyoon.portfolio.entity;
 
+import com.seyoon.portfolio.exception.InsufficientStockException;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -88,4 +89,12 @@ public class Item {
     }// Prevent external modification of the entity's internal map.
 
     public int getAvailable() {return available;}
+
+    public boolean subtractAvailable(int amount) {
+        if (amount <= 0 || amount > available) {
+            return false;
+        }
+        available -= amount;
+        return true;
+    }
 }

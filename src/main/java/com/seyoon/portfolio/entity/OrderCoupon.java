@@ -10,13 +10,13 @@ import com.seyoon.portfolio.entity.type.DiscountTypeSnapshot;
 public class OrderCoupon {
 
     @Id
-    @Column(name = "order_id")
-    private Long orderId;
+    @Column(name = "order_item_id")
+    private Long orderItemId;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @MapsId//이 Entity의 PK를 저 연관 객체의 PK와 똑같이 써라
-    @JoinColumn(name = "order_id")
-    private OrderEntity orderEntity;
+    @MapsId
+    @JoinColumn(name = "order_item_id")
+    private OrderItem orderItem;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "coupon_code", nullable = false)
@@ -37,9 +37,9 @@ public class OrderCoupon {
 
     protected  OrderCoupon() {}
 
-    private OrderCoupon(OrderEntity orderEntity, Coupon coupon,DiscountTypeSnapshot discountTypeSnapshot, BigDecimal discountAmountSnapshot,
+    private OrderCoupon(OrderItem orderItem, Coupon coupon,DiscountTypeSnapshot discountTypeSnapshot, BigDecimal discountAmountSnapshot,
                         BigDecimal discountLimitSnapshot, BigDecimal appliedDiscountAmount) {
-        this.orderEntity = orderEntity;
+        this.orderItem = orderItem;
         this.coupon = coupon;
         this.discountTypeSnapshot = discountTypeSnapshot;
         this.discountAmountSnapshot = discountAmountSnapshot;
@@ -47,14 +47,14 @@ public class OrderCoupon {
         this.appliedDiscountAmount = appliedDiscountAmount;
     }
 
-    public static OrderCoupon create(OrderEntity orderEntity, Coupon coupon, DiscountTypeSnapshot discountTypeSnapshot,
+    public static OrderCoupon create(OrderItem orderItem, Coupon coupon, DiscountTypeSnapshot discountTypeSnapshot,
                                      BigDecimal discountAmountSnapshot, BigDecimal discountLimitSnapshot,
                                      BigDecimal appliedDiscountAmount) {
-        return new OrderCoupon(orderEntity, coupon, discountTypeSnapshot, discountAmountSnapshot,
+        return new OrderCoupon(orderItem, coupon, discountTypeSnapshot, discountAmountSnapshot,
                                 discountLimitSnapshot, appliedDiscountAmount);
     }
 
-    public OrderEntity getOrderEntity() {return orderEntity;}
+    public OrderItem getOrderItem() {return orderItem;}
 
     public Coupon getCoupon() {return coupon;}
 

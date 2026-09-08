@@ -1,4 +1,4 @@
-package com.seyoon.portfolio.entity.type;
+package com.seyoon.portfolio.entity.type.trashbin;
 
 public enum Status {
     PAID,
