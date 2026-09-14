@@ -74,23 +74,6 @@ public class UserOrderService {
 
     //Preview에서는 Order를 만들면 안 됨 -> @Transactional(readOnly = true) 붙이기
 
-
-
-// TODO[ORDER-COUPON]:
-// Handle coupon expiration.
-// Prevent discountAmount from exceeding orderSubtotal.
-// Handle nullable discountLimit if DB policy allows null.
-// orderpreview관련 코드들은 주문 전 페이지. 주문시 DB의 order table 생성
-// TODO[ORDER-PREVIEW-REFACTOR]:
-// Rewrite basket preview using nested store/item structure.
-// Align preview calculation with newOrderBasket:
-// - support multiple store coupons
-// - calculate coupon per item/store with the same V1 policy
-// - keep preview and actual order totals consistent
-// - extract shared price/coupon calculation if useful
-// TODO[ORDER-PREVIEW-COUPON]:
-// Current preview accepts only one couponCode.
-// Change to multiple coupon codes when basket preview is rewritten.
     @Transactional(readOnly = true)
     public OrdersPreviewResponse newPreviewBasket(
             UUID userUuid,
@@ -311,10 +294,6 @@ public class UserOrderService {
     }
 
 
-
-    // TODO[ORDER-COUPON-POLICY]:
-    // V1: store-wide coupon is applied independently to every item in that store.
-    // Later: apply a store-wide coupon only to the item that produces the largest discount within the store.
     @Transactional
     public CreateOrdersResponse newOrderBasket(
             UUID userUuid,
@@ -342,8 +321,7 @@ public class UserOrderService {
                 //            // available < quantity
                 //            // subtractAvailable(quantity)
                 //        }
-        // Coupon 조회 -> error coupon occurs, only count error coupon code
-        // TODO coupon hashmap 재정의
+        // Coupon 조회 -> error coupon occurs, only count error coupon code; coupon hashmap 재정의 consider
         HashMap<UUID, Coupon> coupons = new HashMap<>();
         List<String> couponErrorNotifyList = new ArrayList<>();
         if (couponCode != null) {
@@ -442,12 +420,20 @@ public class UserOrderService {
         Checkout newCheckout = Checkout.create(userInfo, finalAmount, CheckoutStatus.CREATED);
         // 9. Generate OrderEntity for individual Stores
         HashMap<SellerInfo, OrderEntity> orderEntities = new HashMap<>();
+        UserAddressSaved savedAddress =
+                userAddressSavedRepository
+                        .findByAddressIdAndUserInfo_Uuid(addressId, userUuid)
+                        .orElseThrow(() ->
+                                new EntityNotFoundException("Address not found"));
+
+        String shippingAddressSnapshot =
+                savedAddress.getAddress();
         for (SellerInfo seller : totalPerSeller.keySet()) {
             OrderEntity newOrderEntity = OrderEntity.create(
                     newCheckout, userInfo, seller, OrderStatus.PAID,
                     null, null, null, null, null,
                     false,
-                    null, null, userAddressSavedRepository.findByAddressId(addressId));
+                    null, null, shippingAddressSnapshot);
             orderEntities.put(seller, newOrderEntity);
         }
         //    + OrderItems
@@ -519,49 +505,52 @@ public class UserOrderService {
         // check data
         if(purchaseType == null){throw new PurchaseFailException("Purchase Type Not Found");}
         if(quantity <= 0){throw new InvalidQuantityException("Quantity must be greater than 0");}
+
+        // make userInfo and item
+        UserInfo userInfo = userInfoRepository.findById(userUuid).orElseThrow(() -> new EntityNotFoundException("User Not Found"));
+        Item item = itemRepository.findById(itemCode).orElseThrow(() ->
+                new ItemNotFoundException("Item " + itemCode + " not found"));// previewAvailableItem으로 끝내면 안되나? 저 함수는 왜 preview용이지?
+        // check item availalbe -> replaced by atomic update in ItemRepository
+        //TODO 이 ArithmeticException은 나중에는 별도 도메인 예외로 바꾸기
         int updatedRows = itemRepository.decreaseAvailable(itemCode, quantity);
         if (updatedRows == 0) {
             throw new InsufficientStockException("Insufficient Stock");
         }
-        // make userInfo and item
-        UserInfo userInfo = userInfoRepository.findById(userUuid).orElseThrow(() -> new EntityNotFoundException("User Not Found"));
-        Item item = itemRepository.findById(itemCode).orElseThrow(() ->
-                new ItemNotFoundException("Item " + itemCode + " not found"));
-        validatePreviewAvailableItem(item, quantity);
-        // check item availalbe -> replaced by atomic update in ItemRepository
-//        int availableItem = item.getAvailable();
-//        if (availableItem == 0) {throw new ItemOutOfStockException("Item " + itemCode + " is out of stock");}
-//        if (availableItem < quantity) {throw new InsufficientStockException("Item " + itemCode + " has insufficient stock");}
-        // remove quantity to buy
-        //TODO 이 ArithmeticException은 나중에는 별도 도메인 예외로 바꾸기
-        if(!item.subtractAvailable(quantity)){
-            throw new ArithmeticException("Item " + itemCode + " has stock error");
-        }
+//        validatePreviewAvailableItem(item, quantity);
+//        if(!item.subtractAvailable(quantity)){
+//            throw new ArithmeticException("Item " + itemCode + " has stock error");
+//        }
         Coupon coupon = returnAvailableCoupon(couponCode);
         // decide price and fee
-        BigDecimal unitPrice = item.getPrice();
-        BigDecimal orderSubtotal =  unitPrice.multiply(BigDecimal.valueOf(quantity));
+        PricingResult pricingResult = calculatePricing(item, quantity, coupon);
+//        BigDecimal unitPrice = item.getPrice();
+//        BigDecimal orderSubtotal =  unitPrice.multiply(BigDecimal.valueOf(quantity));
         BigDecimal deliveryFee =  BigDecimal.ZERO;
-        BigDecimal discountAmount = null;
-        BigDecimal finalAmount = null;
+//        BigDecimal discountAmount = null;
+//        BigDecimal finalAmount = null;
+        UserAddressSaved savedAddress =
+                userAddressSavedRepository
+                        .findByAddressIdAndUserInfo_Uuid(addressId, userUuid)
+                        .orElseThrow(() ->
+                                new EntityNotFoundException("Address not found"));
+
+        String shippingAddressSnapshot =
+                savedAddress.getAddress();
         // decide finalAmount and discountAmount by coupon
-        if(coupon!=null) {
-            discountAmount = returnDiscountAmount(coupon, item, orderSubtotal);
-            finalAmount = orderSubtotal.add(deliveryFee).subtract(discountAmount);
-        }
-        else {
-            discountAmount = BigDecimal.ZERO;
-            finalAmount = orderSubtotal.add(deliveryFee);
-        }
-        // purchase
-        if(!purchase(finalAmount, purchaseType, paymentId)){
-            throw new PurchaseFailException("Purchase Failed");
-        }
+//        if(coupon!=null) {
+//            discountAmount = returnDiscountAmount(coupon, item, orderSubtotal);
+//            finalAmount = orderSubtotal.add(deliveryFee).subtract(discountAmount);
+//        }
+//        else {
+//            discountAmount = BigDecimal.ZERO;
+//            finalAmount = orderSubtotal.add(deliveryFee);
+//        }
+        // purchase 자리였으나 이사감
         SellerInfo sellerInfo = item.getSellerInfo();
         // create related entity
         Checkout newCheckout = Checkout.create(
                 userInfo,
-                finalAmount,
+                pricingResult.finalAmount(),
                 CheckoutStatus.CREATED
         );
         OrderEntity newOrderEntity = OrderEntity.create(
@@ -577,14 +566,14 @@ public class UserOrderService {
                 false,
                 null,
                 null,
-                userAddressSavedRepository.findByAddressId(addressId)
+                shippingAddressSnapshot
         );
         // OrderEvent newOrderEvent = OrderEvent.create();// 이건 만들 필요가 없네...
         OrderItem orderItem = OrderItem.create(
                 newOrderEntity,
                 item,
                 quantity,
-                unitPrice,
+                pricingResult.unitPrice(),
                 item.getItemName()
         );
         // coupon이 null이 아닌 경우 만들기 -> 추후 coupon 사용여부에 따라 DB에 데이터 입력여부 결정
@@ -596,7 +585,7 @@ public class UserOrderService {
                     DiscountTypeSnapshot.valueOf(coupon.getDiscountType().name()),
                     coupon.getDiscountAmount(),
                     coupon.getDiscountLimit(),
-                    discountAmount
+                    pricingResult.discountAmount()
             );
         }
         // save created entities
@@ -607,7 +596,10 @@ public class UserOrderService {
             orderCouponRepository.save(newOrderCoupon);
         }
         // save subtracted quantity //itemRepository.save(item); -> dirty changing
-        //TODO 여기에 구매파트를 놓는게 더 합리적일지도...
+        //TODO 여기에 구매파트를 놓는게 더 합리적일 것 같아서 일단 옮김
+        if(!purchase(pricingResult.finalAmount(), purchaseType, paymentId)){
+            throw new PurchaseFailException("Purchase Failed");
+        }
         //return CreateOrdersResponse
         ArrayList<Long>  orderIds = new ArrayList<>();
         orderIds.add(newOrderEntity.getOrderId());
@@ -689,4 +681,42 @@ public class UserOrderService {
         if(discountAmount.compareTo(orderSubtotal) > 0){discountAmount = orderSubtotal;}
         return discountAmount;
     }
+
+    private PricingResult calculatePricing(
+            Item item,
+            int quantity,
+            Coupon coupon
+    ) {
+        BigDecimal unitPrice = item.getPrice();
+        BigDecimal subtotal =
+                unitPrice.multiply(BigDecimal.valueOf(quantity));
+
+        BigDecimal discountAmount = coupon == null
+                ? BigDecimal.ZERO
+                : returnDiscountAmount(coupon, item, subtotal);
+
+        BigDecimal finalAmount =
+                subtotal.subtract(discountAmount);
+
+        return new PricingResult(
+                unitPrice,
+                subtotal,
+                discountAmount,
+                finalAmount
+        );
+    }
+
+    private record PricingResult(
+            BigDecimal unitPrice,
+            BigDecimal subtotal,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount
+    ) {}
+
+    private record OrderLineCalculation(
+            Item item,
+            int quantity,
+            Coupon coupon,
+            PricingResult pricing
+    ) {}
 }
