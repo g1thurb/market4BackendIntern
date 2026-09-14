@@ -1,4 +1,6 @@
 package com.seyoon.portfolio.dto.request;
 
-public record BasketOrderPreviewRequest(String couponCode) {
+import java.util.List;
+
+public record BasketOrderPreviewRequest(List<String> couponCodes) {
 }// 나중에 List<String> couponCodes 쓰기;

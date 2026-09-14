@@ -27,17 +27,21 @@ public class OrderItem {
     @Column(name = "unit_price_at_purchase", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPriceAtPurchase;
 
+    @Column(name = "item_name_snapshot", nullable = false)
+    private String itemNameSnapshot;
+
     protected OrderItem() {}
 
-    private OrderItem(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase) {
+    private OrderItem(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase, String itemNameSnapshot) {
         this.orderEntity = orderEntity;
         this.item = item;
         this.quantity = quantity;
         this.unitPriceAtPurchase = unitPriceAtPurchase;
+        this.itemNameSnapshot = itemNameSnapshot;
     }
 
-    public static OrderItem create(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase) {
-        return new OrderItem(orderEntity, item, quantity, unitPriceAtPurchase);
+    public static OrderItem create(OrderEntity orderEntity, Item item, int quantity, BigDecimal unitPriceAtPurchase, String itemNameSnapshot) {
+        return new OrderItem(orderEntity, item, quantity, unitPriceAtPurchase,  itemNameSnapshot);
     }
 
     //getter
@@ -50,4 +54,6 @@ public class OrderItem {
     public int getQuantity() {return quantity;}
 
     public BigDecimal getUnitPriceAtPurchase() {return unitPriceAtPurchase;}
+
+    public String getItemNameSnapshot() {return itemNameSnapshot;}
 }

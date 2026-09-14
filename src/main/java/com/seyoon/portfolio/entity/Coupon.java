@@ -20,8 +20,8 @@ public class Coupon {
     @JoinColumn(name = "store_uuid", nullable = false)
     private SellerInfo sellerInfo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_code")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "item_code", nullable = false)
     private Item item;
 
     @Enumerated(EnumType.STRING)
@@ -32,7 +32,7 @@ public class Coupon {
     private BigDecimal discountAmount;
 
     @Column(name = "discount_limit", precision = 12, scale = 2)
-    private BigDecimal discountLimit;
+    private BigDecimal discountLimit; // Must Be Price Not Percent
 
     @Column(name = "due_date", nullable = false)
     private OffsetDateTime dueDate;

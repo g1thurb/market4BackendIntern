@@ -33,7 +33,7 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "status", nullable = false, length = 30)
     private OrderStatus orderStatus;
 
-    @Column(name = "ordered_at", nullable = false)
+    @Column(name = "ordered_at", nullable = false, updatable = false)
     private OffsetDateTime orderedAt;
 
     @Column(name = "courier_code", length = 20)
@@ -66,12 +66,15 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "version", nullable = false)
     private Long version;
 
+    @Column(name = "shipping_address_snapshot", nullable = false, length = 255)
+    private String shippingAddressSnapshot;
+
     protected OrderEntity() {}
 
     private OrderEntity(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus, String courierCode,
                   String trackingNumber,  OffsetDateTime deliveredDate, DeliveredMarkedBy deliveredMarkedBy,
                   OffsetDateTime confirmDeadlineDate, boolean confirmExtended,
-                  OffsetDateTime confirmDate, ConfirmedBy confirmedBy) {
+                  OffsetDateTime confirmDate, ConfirmedBy confirmedBy, String shippingAddressSnapshot) {
         this.checkout = checkout;
         this.userInfo = userInfo;
         this.sellerInfo = sellerInfo;
@@ -85,14 +88,16 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
         this.confirmDeadlineDate = confirmDeadlineDate;
         this.confirmExtended = confirmExtended;
         this.confirmedBy = confirmedBy;
+        this.shippingAddressSnapshot = shippingAddressSnapshot;
     }
 
     public static OrderEntity create(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus,
                                      String courierCode, String trackingNumber,  OffsetDateTime deliveredDate,
                                      DeliveredMarkedBy deliveredMarkedBy, OffsetDateTime confirmDeadlineDate,
-                                     boolean confirmExtended, OffsetDateTime confirmDate, ConfirmedBy confirmedBy) {
+                                     boolean confirmExtended, OffsetDateTime confirmDate, ConfirmedBy confirmedBy,
+                                     String shippingAddressSnapshot) {
         return new OrderEntity(checkout, userInfo, sellerInfo, orderStatus, courierCode, trackingNumber, deliveredDate,
-                deliveredMarkedBy, confirmDeadlineDate, confirmExtended, confirmDate, confirmedBy);
+                deliveredMarkedBy, confirmDeadlineDate, confirmExtended, confirmDate, confirmedBy,  shippingAddressSnapshot);
     }
 
     //Getter
@@ -125,4 +130,6 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     public ConfirmedBy getConfirmedBy() {return confirmedBy;}
 
     public Long getVersion() {return version;}
+
+    public String getShippingAddressSnapshot() {return shippingAddressSnapshot;}
 }

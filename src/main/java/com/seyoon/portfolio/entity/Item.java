@@ -13,6 +13,8 @@ import java.time.OffsetDateTime;
 @Table(name = "items")
 public class Item {
 
+    // TODO coupon의 sellerInfo와 coupon의 item에 있는 sellerInfo가 달라지는 에러를 막기 위해 쿠폰 발행시 이거를 막는 알고리즘이 필요하겠다.
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "item_code", nullable = false)

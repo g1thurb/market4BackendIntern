@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface UserAddressSavedRepository extends JpaRepository<UserAddressSaved, Long> {
 
     List<UserAddressSaved> findAllByUserInfo_Uuid(UUID userUuid);
+
+    String findByAddressId(Long addressId);
 }
