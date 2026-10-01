@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: portfolio-postgres
+
+    environment:
+      POSTGRES_DB: personal_db
+      POSTGRES_USER: personal_user
+      POSTGRES_PASSWORD: personal_password
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U personal_user -d personal_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: portfolio-app
+
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/personal_db
+      DB_USERNAME: personal_user
+      DB_PASSWORD: personal_password
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+volumes:
+  postgres-data:

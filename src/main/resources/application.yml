@@ -3,9 +3,9 @@ spring:
     name: portfolio
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/personal_db
-    username: personal_user
-    password: personal_password
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/personal_db}
+    username: ${DB_USERNAME:personal_user}
+    password: ${DB_PASSWORD:personal_password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
