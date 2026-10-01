@@ -111,4 +111,116 @@ public class UserOrderApiControllerTest {
                 .andExpect(jsonPath("$.orderIds").isArray())
                 .andExpect(jsonPath("$.orderIds.length()").value(1));
     }
+
+    @Test
+    void orderItem_invalidQuantity_returns400() throws Exception {
+        mockMvc.perform(
+                        post("/api/user/orders/item")
+                                .param(
+                                        "userUuid",
+                                        "11111111-1111-1111-1111-111111111111"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "itemCode": 1,
+                                        "quantity": 0,
+                                        "couponCode": null,
+                                        "addressId": 3,
+                                        "purchaseType": "CARD",
+                                        "paymentId": 1
+                                    }
+                                    """)
+                )
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void orderItem_unknownItem_returns404() throws Exception {
+        mockMvc.perform(
+                        post("/api/user/orders/item")
+                                .param(
+                                        "userUuid",
+                                        "11111111-1111-1111-1111-111111111111"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "itemCode": 999999,
+                                        "quantity": 1,
+                                        "couponCode": null,
+                                        "addressId": 3,
+                                        "purchaseType": "CARD",
+                                        "paymentId": 1
+                                    }
+                                    """)
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void orderItem_insufficientStock_returns409() throws Exception {
+        mockMvc.perform(
+                        post("/api/user/orders/item")
+                                .param(
+                                        "userUuid",
+                                        "11111111-1111-1111-1111-111111111111"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "itemCode": 1,
+                                        "quantity": 999,
+                                        "couponCode": null,
+                                        "addressId": 3,
+                                        "purchaseType": "CARD",
+                                        "paymentId": 1
+                                    }
+                                    """)
+                )
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void orderItem_expiredCoupon_returns4xx() throws Exception {
+        mockMvc.perform(
+                        post("/api/user/orders/item")
+                                .param(
+                                        "userUuid",
+                                        "11111111-1111-1111-1111-111111111111"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "itemCode": 1,
+                                        "quantity": 1,
+                                        "couponCode": "TEST_EXPIRED",
+                                        "addressId": 3,
+                                        "purchaseType": "CARD",
+                                        "paymentId": 1
+                                    }
+                                    """)
+                )
+                // 네 ExceptionHandler에 지정한 정확한 status로 교체
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void orderItem_invalidJson_returns400() throws Exception {
+        mockMvc.perform(
+                        post("/api/user/orders/item")
+                                .param(
+                                        "userUuid",
+                                        "11111111-1111-1111-1111-111111111111"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "itemCode": 1,
+                                        "purchaseType": CARD
+                                    }
+                                    """)
+                )
+                .andExpect(status().isBadRequest());
+    }
 }
