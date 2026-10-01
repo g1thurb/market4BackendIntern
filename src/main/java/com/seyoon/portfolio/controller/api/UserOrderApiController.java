@@ -24,14 +24,14 @@ public class UserOrderApiController {
     }
 
     //@RequestParam UUID userUuid은 보언인증파트 끝나면 @RequestParam을 없애기 + 추가할 것 있으면 하기
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.OK)
     @PostMapping("/preview/basket")
     public OrdersPreviewResponse getUserBasketOrdersPreview(@RequestParam UUID userUuid,
                                                             @RequestBody BasketOrderPreviewRequest basketOrderPreviewRequest) {
         return userOrderService.newPreviewBasket(userUuid, basketOrderPreviewRequest.couponCodes());
     }
 
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.OK)
     @PostMapping("/preview/item")
     public OrdersPreviewResponse getUserItemOrdersPreview(
             @RequestParam UUID userUuid, @RequestBody ItemOrderPreviewRequest request) {

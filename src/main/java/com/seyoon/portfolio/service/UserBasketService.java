@@ -45,7 +45,7 @@ public class UserBasketService {
         if (userBasket.isPresent()) {
             // BasketItem 조회
             Long basketId = userBasket.get().getBasketId();
-            List<BasketItem> basketItems = basketItemRepository.findByUserBasket_BasketId(basketId);
+            List<BasketItem> basketItems = basketItemRepository.findAllByUserBasket_BasketId(basketId);
             // DTO 조립
             BigDecimal totalAmount = BigDecimal.ZERO;
             List<BasketItemResponse> basketItemResponses = new ArrayList<>();

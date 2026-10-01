@@ -52,7 +52,7 @@ class RepositoryQueryTest {
     @Test
     void findBasketItemsByBasketId() {
         List<BasketItem> basketItems =
-                basketItemRepository.findByUserBasket_BasketId(1L);
+                basketItemRepository.findAllByUserBasket_BasketId(1L);
         assertFalse(basketItems.isEmpty());
     }
 

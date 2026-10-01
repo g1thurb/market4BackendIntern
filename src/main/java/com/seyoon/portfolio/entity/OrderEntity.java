@@ -66,15 +66,18 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     @Column(name = "version", nullable = false)
     private Long version;
 
-    @Column(name = "shipping_address_snapshot", nullable = false, length = 255)
+    @Column(name = "shipping_address_snapshot", nullable = false, length = 150)
     private String shippingAddressSnapshot;
+
+    @Column(name = "delivery_address", nullable = false, length = 255)
+    private String deliveryAddress;
 
     protected OrderEntity() {}
 
     private OrderEntity(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus, String courierCode,
                   String trackingNumber,  OffsetDateTime deliveredDate, DeliveredMarkedBy deliveredMarkedBy,
                   OffsetDateTime confirmDeadlineDate, boolean confirmExtended,
-                  OffsetDateTime confirmDate, ConfirmedBy confirmedBy, String shippingAddressSnapshot) {
+                  OffsetDateTime confirmDate, ConfirmedBy confirmedBy, String shippingAddressSnapshot, String deliveryAddress) {
         this.checkout = checkout;
         this.userInfo = userInfo;
         this.sellerInfo = sellerInfo;
@@ -89,15 +92,16 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
         this.confirmExtended = confirmExtended;
         this.confirmedBy = confirmedBy;
         this.shippingAddressSnapshot = shippingAddressSnapshot;
+        this.deliveryAddress = deliveryAddress;
     }
 
     public static OrderEntity create(Checkout checkout, UserInfo userInfo, SellerInfo sellerInfo, OrderStatus orderStatus,
                                      String courierCode, String trackingNumber,  OffsetDateTime deliveredDate,
                                      DeliveredMarkedBy deliveredMarkedBy, OffsetDateTime confirmDeadlineDate,
                                      boolean confirmExtended, OffsetDateTime confirmDate, ConfirmedBy confirmedBy,
-                                     String shippingAddressSnapshot) {
-        return new OrderEntity(checkout, userInfo, sellerInfo, orderStatus, courierCode, trackingNumber, deliveredDate,
-                deliveredMarkedBy, confirmDeadlineDate, confirmExtended, confirmDate, confirmedBy,  shippingAddressSnapshot);
+                                     String shippingAddressSnapshot,  String deliveryAddress) {
+        return new OrderEntity(checkout, userInfo, sellerInfo, orderStatus, courierCode, trackingNumber, deliveredDate, deliveredMarkedBy,
+                confirmDeadlineDate, confirmExtended, confirmDate, confirmedBy,  shippingAddressSnapshot, deliveryAddress);
     }
 
     //Getter
@@ -132,4 +136,6 @@ public class OrderEntity {// Named OrderEntity to avoid confusion with Spring's 
     public Long getVersion() {return version;}
 
     public String getShippingAddressSnapshot() {return shippingAddressSnapshot;}
+
+    public String getDeliveryAddress() {return deliveryAddress;}
 }

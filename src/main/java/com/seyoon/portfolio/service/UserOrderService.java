@@ -73,7 +73,7 @@ public class UserOrderService {
     }
 
     //Preview에서는 Order를 만들면 안 됨 -> @Transactional(readOnly = true) 붙이기
-
+    //TODO calculatePricing()사용하는 방향으로 바꾸기
     @Transactional(readOnly = true)
     public OrdersPreviewResponse newPreviewBasket(
             UUID userUuid,
@@ -92,7 +92,7 @@ public class UserOrderService {
             );
         }
 
-        List<BasketItem> basketItems = basketItemRepository.findByUserBasket_BasketId(userBasket.getBasketId());
+        List<BasketItem> basketItems = basketItemRepository.findAllByUserBasket_BasketId(userBasket.getBasketId());
 //        // storeUuid ASC
 //        basketItems.sort(Comparator.comparing(BasketItem::getItemStoreUUID));
 
@@ -298,196 +298,149 @@ public class UserOrderService {
     public CreateOrdersResponse newOrderBasket(
             UUID userUuid,
             Long addressId,
-            List<String> couponCode,
+            List<String> couponCodes,
             PurchaseType purchaseType,
             Long paymentId
     ) {
-        // order를 만들고 basket을 삭제하기; order를 만들다 에러나면 롤백되지롱
-        // check data
-        if(purchaseType == null){throw new PurchaseFailException("Purchase Type Not Found");}
-        // make userInfo and basket with items
+        // 1. purchaseType 검증
+//        switch (purchaseType) {
+//            case MOBILE_CARRIER, CARD, BANK_BOOK:
+//                break;
+//            default:
+//                throw new IllegalArgumentException("Invalid purchase type");
+//        }
+        if (purchaseType == null) {
+            throw new PurchaseFailException("Purchase Type Not Found");
+        }
+        // 2. User 조회
         UserInfo userInfo = userInfoRepository.findById(userUuid).orElseThrow(() -> new EntityNotFoundException("User Not Found"));
-        UserBasket userBasket = userBasketRepository.findByUserInfo_Uuid(userUuid).orElseThrow(() -> new EntityNotFoundException("Basket Not Found"));
-        List<BasketItem> basketItems = basketItemRepository.findByUserBasket_BasketId(userBasket.getBasketId());
-        if (basketItems.isEmpty()) {throw new EntityNotFoundException("Basket is empty");}
-        // request 검증
-        // purchaseType
-                //        for (BasketItem basketItem : basketItems) {
-                //            Item item = basketItem.getItem();
-                //            int quantity = basketItem.getQuantity();
-                //            int available = item.getAvailable();
-                //
-                //            // available == 0
-                //            // available < quantity
-                //            // subtractAvailable(quantity)
-                //        }
-        // Coupon 조회 -> error coupon occurs, only count error coupon code; coupon hashmap 재정의 consider
-        HashMap<UUID, Coupon> coupons = new HashMap<>();
-        List<String> couponErrorNotifyList = new ArrayList<>();
-        if (couponCode != null) {
-            for (String code : couponCode) {
-                if (code == null || code.isBlank()) {
-                    continue;
-                }
-                if (couponErrorNotifyList.isEmpty() && code != null) {// && !code.isEmpty() 이건 필요없지않나?
-                    Optional<Coupon> coupon = couponRepository.findById(code);
-                    if (coupon.isPresent()) {
-                        coupons.put(coupon.get().getSellerInfo().getStoreUuid(), coupon.get());
-                    } else {
-                        couponErrorNotifyList.add(code + " not found\n");
-                    }
-                } else if (!couponRepository.existsById(code)) {
-                    couponErrorNotifyList.add(code + " not found\n");
-                }
-            }
-        }
-        if (!couponErrorNotifyList.isEmpty()) {
-            throw new CouponNotFoundException(couponErrorNotifyList.toString());
-        }
-        // BasketItems 전체 재고 검증 + 차감 + 밑에 있는 것들
-        // subtotal / discount / finalAmount calculation for individual store
-        ArrayList<String> basketErrorNotifyList = new ArrayList<>();
-        HashMap<Item, Integer> ordersItemQuantities = new HashMap<>();
-//        HashMap<Item, BigDecimal> ordersItemPrices = new HashMap<>();
-        HashMap<Item, BigDecimal> ordersDiscountPrices = new HashMap<>();
-        HashMap<Item, Coupon> ordersAppliedCoupons = new HashMap<>();
-        HashMap<SellerInfo, BigDecimal> totalPerSeller = new HashMap<>();
-        for (BasketItem basketItem : basketItems) {
-            Item item = basketItem.getItem();
-            int quantity = basketItem.getQuantity();
-            if(basketErrorNotifyList.isEmpty()){
-                if (quantity <= item.getAvailable()) {
-                    SellerInfo sellerInfo = item.getSellerInfo();
-                    BigDecimal subTotal = item.getPrice().multiply(BigDecimal.valueOf(quantity));
-                    Coupon coupon = coupons.get(sellerInfo.getStoreUuid());
-                    BigDecimal discount = BigDecimal.ZERO;
-                    if(coupon != null){
-                        Item couponItem = coupon.getItem();
-                        if (couponItem == null || couponItem.equals(item)) {
-                            switch (coupon.getDiscountType()) {
-                                case PRICE -> discount = coupon.getDiscountAmount();
-                                case PERCENT -> discount = subTotal
-                                        .multiply(coupon.getDiscountAmount()).divide(BigDecimal.valueOf(100));
-                            }
-                            if(discount.compareTo(coupon.getDiscountLimit())>0){
-                                discount = coupon.getDiscountLimit();
-                            }
-                        }
+        // 3. Basket + BasketItems 조회
+        UserBasket userBasket = userBasketRepository.findByUserInfo_Uuid(userUuid)
+                .orElse(null);
 
-                    }
-                    if (!item.subtractAvailable(quantity)) {
-                        basketErrorNotifyList.addLast("Item " + item.getItemCode() + " has stock error");
-                        continue;
-                    }
-                    ordersItemQuantities.put(item, quantity);
-                    if (discount.compareTo(BigDecimal.ZERO) > 0){
-                        ordersDiscountPrices.put(item, discount);
-                        ordersAppliedCoupons.put(item, coupon);
-                        totalPerSeller.put(sellerInfo, totalPerSeller.getOrDefault(sellerInfo, BigDecimal.ZERO)
-                                .add(subTotal).subtract(discount));
-//                        ordersItemPrices.put(item, ordersItemPrices.getOrDefault(item, BigDecimal.ZERO)
-//                                .add(subTotal).subtract(discount));
-                    }
-                    else{
-                        totalPerSeller.put(sellerInfo, totalPerSeller.getOrDefault(sellerInfo, BigDecimal.ZERO).add(subTotal));
-//                        ordersItemPrices.put(item, ordersItemPrices.getOrDefault(item, BigDecimal.ZERO).add(subTotal));
-                    }
-                } else {
-                    basketErrorNotifyList.addLast(item.getItemName() + " has " + item.getAvailable() + " items, \n");
-                }
-            }
-            else{
-                if (quantity > item.getAvailable()) {
-                    basketErrorNotifyList.addLast(item.getItemName() + " has " + item.getAvailable() + " items, \n");
-                }
-            }
+        if (userBasket == null) {
+            throw new EntityNotFoundException("Your basket is empty");
         }
-        if (!basketErrorNotifyList.isEmpty()) {
-            throw new ItemOutOfStockException(basketErrorNotifyList.toString());
+        List<BasketItem> basketItems = basketItemRepository.findAllByUserBasket_BasketId(userBasket.getBasketId());
+        if (basketItems.isEmpty()) {
+            throw new EntityNotFoundException("Basket is empty");
         }
-        // 6. checkoutTotalAmount calc
-        BigDecimal finalAmount =  BigDecimal.ZERO;
-        for (BigDecimal price : totalPerSeller.values()){
-            finalAmount = finalAmount.add(price);
-        }
-        //
-        // 7. pay
-        if(!purchase(finalAmount, purchaseType, paymentId)){
-            throw new PurchaseFailException("Purchase Failed");
-        }
-
-        // 8. Generate Checkout
-        Checkout newCheckout = Checkout.create(userInfo, finalAmount, CheckoutStatus.CREATED);
-        // 9. Generate OrderEntity for individual Stores
-        HashMap<SellerInfo, OrderEntity> orderEntities = new HashMap<>();
+        // 4. Address ownership 검증
         UserAddressSaved savedAddress =
                 userAddressSavedRepository
                         .findByAddressIdAndUserInfo_Uuid(addressId, userUuid)
                         .orElseThrow(() ->
                                 new EntityNotFoundException("Address not found"));
-
-        String shippingAddressSnapshot =
-                savedAddress.getAddress();
-        for (SellerInfo seller : totalPerSeller.keySet()) {
-            OrderEntity newOrderEntity = OrderEntity.create(
-                    newCheckout, userInfo, seller, OrderStatus.PAID,
-                    null, null, null, null, null,
-                    false,
-                    null, null, shippingAddressSnapshot);
-            orderEntities.put(seller, newOrderEntity);
+        String userAddressSnapshot = savedAddress.getAddress();
+//        Optional<UserAddressSaved> userAddressSaved = userAddressSavedRepository.findByAddressIdAndUserInfo_Uuid(addressId, userUuid);
+//        if (userAddressSaved.isEmpty() || !userAddressSaved.get().getUserInfo().getUuid().equals(userUuid)) {
+//            throw new EntityNotFoundException("Your address doesn't exist");
+//        }
+//        String userAddressSnapshot = userAddressSaved.get().getAddress();
+        // 5. couponCodes
+        // → Map<Long, Coupon> couponByItemCode
+        Map<Long, Coupon> couponByItemCode = new HashMap<>();
+        // → 중복 item coupon 방지
+        if (couponCodes != null) {
+            for (String couponCode : couponCodes) {
+                Coupon coupon = returnAvailableCoupon(couponCode);
+                if (coupon == null) {continue;}
+                Long itemCode = coupon.getItem().getItemCode();
+                if (couponByItemCode.containsKey(itemCode)) {
+                    throw new CouponNotMatchException("Item " + itemCode + " can use only one coupon");
+                }
+                couponByItemCode.put(itemCode, coupon);
+            }
         }
-        //    + OrderItems
-        HashMap<Item, OrderItem> orderItems = new HashMap<>();
-        for (Item item : ordersItemQuantities.keySet()) {
-            OrderItem newOrderItem = null;
-            newOrderItem = OrderItem.create(
-                    orderEntities.get(item.getSellerInfo()),
-                    item,
-                    ordersItemQuantities.get(item),
-                    item.getPrice(),
-                    item.getItemName()
-            );
-//            OrderItem.create(
-//                    orderEntities.get(item.getSellerInfo()), item, ordersItemQuantities.get(item),
-//                    (item.getPrice().multiply(BigDecimal.valueOf(ordersItemQuantities.get(item)))
-//                            .subtract(ordersDiscountPrices.getOrDefault(item, BigDecimal.ZERO))
-//                            .divide(BigDecimal.valueOf(ordersItemQuantities.get(item)))));
-            orderItems.put(item, newOrderItem);
+        // 6. BasketItems를 itemCode 순으로 정렬 (atomic stock update lock 순서 대비) ? 차라리 storeUUID순이 낫지 않나? // storeUuid ASC
+//        basketItems.sort(Comparator.comparing(BasketItem::getItemStoreUUID));
+        basketItems.sort(
+                Comparator.comparing(
+                        basketItem -> basketItem.getItem().getItemCode()
+                )
+        );
+        // 7. List<OrderLineCalculation> lines; Map<SellerInfo, BigDecimal> totalPerSeller
+        List<OrderLineCalculation> lines = new ArrayList<>();
+        Map<SellerInfo, BigDecimal> totalPerSeller = new  HashMap<>();
+        // 8. BasketItem loop
+        for (BasketItem basketItem : basketItems) {
+            // - Item / quantity
+            Item item = basketItem.getItem();
+            Long itemCode = item.getItemCode();
+            int quantity = basketItem.getQuantity();
+            if (quantity <= 0) {throw new InvalidQuantityException("Quantity must be bigger than 0");}
+            // - Coupon 가져오기
+            Coupon coupon = couponByItemCode.remove(itemCode);
+            // - calculatePricing()
+            PricingResult pricing = calculatePricing(item, quantity, coupon);
+            // - atomic stock update
+            int updatedRows = itemRepository.decreaseAvailable(itemCode, quantity);
+            if (updatedRows == 0) {
+                throw new InsufficientStockException("Insufficient Stock");
+            }
+            // - lines.add(...)
+            lines.add(new OrderLineCalculation(item, quantity, coupon, pricing));
+            // - totalPerSeller.merge(...)
+            SellerInfo sellerInfo = item.getSellerInfo();
+            totalPerSeller.put(sellerInfo, totalPerSeller.getOrDefault(sellerInfo, BigDecimal.ZERO).add(pricing.finalAmount()));
         }
-        //    + OrderCoupons(if necessary)
-        // OrderCoupon이 OrderItem의 PK인 order_item_id를 참조하는 것을 고려 -> 그렇게 하기로 결정
-        HashMap<Item, OrderCoupon> orderCoupons = new HashMap<>();
-        for(Item appliedItem : ordersAppliedCoupons.keySet()){
-            Coupon coupon = ordersAppliedCoupons.get(appliedItem);
-            OrderCoupon newOrderCoupon = OrderCoupon.create(
-                    orderItems.get(appliedItem),
-                    coupon,
-                    DiscountTypeSnapshot.valueOf(coupon.getDiscountType().name()),
-                    coupon.getDiscountAmount(),
-                    coupon.getDiscountLimit(),
-                    ordersDiscountPrices.get(appliedItem)
-            );
-            orderCoupons.put(appliedItem, newOrderCoupon);
+        // 9. 사용되지 않은 Coupon 있으면 reject
+        if(!couponByItemCode.isEmpty()) {throw new CouponNotMatchException("Some Coupon Not Matches");}
+        // 10. checkoutTotal 계산
+        BigDecimal finalAmount = BigDecimal.ZERO;
+        for (BigDecimal pricePerSeller : totalPerSeller.values()){finalAmount = finalAmount.add(pricePerSeller);}
+        // 12. Checkout 생성
+        Checkout checkout = Checkout.create(userInfo, finalAmount, CheckoutStatus.CREATED);
+        // 13. Seller별 OrderEntity 생성
+        Map<UUID, OrderEntity> orderEntities = new HashMap<>();
+        for (SellerInfo sellerInfo : totalPerSeller.keySet()) {
+            orderEntities.put(sellerInfo.getStoreUuid(),
+                    OrderEntity.create(checkout, userInfo, sellerInfo, OrderStatus.PAID, null, null,
+                            null, null, null, false, null,
+                            null, userAddressSnapshot, userAddressSnapshot));
         }
-        // 10. save
-        checkoutRepository.save(newCheckout);
+        // 14. lines 다시 순회
+        List<OrderItem> orderItems = new ArrayList<>();
+        List<OrderCoupon> orderCoupons = new ArrayList<>();
+        for(OrderLineCalculation line : lines) {
+            // - OrderItem 생성
+            Item item = line.item();
+            OrderItem orderItem = OrderItem.create(
+                    orderEntities.get(item.getSellerInfo().getStoreUuid()), item,
+                    line.quantity(), line.pricing.unitPrice(),item.getItemName());
+            orderItems.add(orderItem);
+            // - coupon != null이면 OrderCoupon 생성
+            if(line.coupon() != null) {
+                Coupon coupon = line.coupon();
+                PricingResult pricing = line.pricing();
+                orderCoupons.add(OrderCoupon.create(orderItem, coupon, DiscountTypeSnapshot.valueOf(coupon.getDiscountType().name()),
+                        coupon.getDiscountAmount(), coupon.getDiscountLimit(), pricing.discountAmount()));
+            }
+        }
+        // 15. save (checkout, orderEntities.values(), orderItems)
+        checkoutRepository.save(checkout);
         for (OrderEntity orderEntity : orderEntities.values()) {
             orderRepository.save(orderEntity);
         }
-        for (OrderItem orderItem : orderItems.values()) {
+        for (OrderItem orderItem : orderItems) {
             orderItemRepository.save(orderItem);
         }
-        for (OrderCoupon orderCoupon : orderCoupons.values()) {
+        for (OrderCoupon orderCoupon : orderCoupons) {
             orderCouponRepository.save(orderCoupon);
         }
-        // 11. delete BasketItems
+        // 16. Basket 삭제
+        basketItemRepository.deleteAllByUserBasket_BasketId(userBasket.getBasketId());
         userBasketRepository.delete(userBasket);
-        // 12. Return checkoutId + orderIds by CreateOrdersResponse
-        ArrayList<Long>  orderIds = new ArrayList<>();
+        // 11. payment
+        if(!purchase(finalAmount, purchaseType, paymentId)){
+            throw new PurchaseFailException("Purchase Failed");
+        }
+        // 17. CreateOrdersResponse
+        List<Long> orderIds = new ArrayList<>();
         for (OrderEntity orderEntity : orderEntities.values()) {
             orderIds.add(orderEntity.getOrderId());
         }
-        return new CreateOrdersResponse(newCheckout.getCheckoutId(), orderIds);
+        return new CreateOrdersResponse(checkout.getCheckoutId(), orderIds);
     }
 
 
@@ -566,6 +519,7 @@ public class UserOrderService {
                 false,
                 null,
                 null,
+                shippingAddressSnapshot,
                 shippingAddressSnapshot
         );
         // OrderEvent newOrderEvent = OrderEvent.create();// 이건 만들 필요가 없네...
@@ -682,21 +636,15 @@ public class UserOrderService {
         return discountAmount;
     }
 
-    private PricingResult calculatePricing(
-            Item item,
-            int quantity,
-            Coupon coupon
-    ) {
+    private PricingResult calculatePricing(Item item, int quantity, Coupon coupon) {
         BigDecimal unitPrice = item.getPrice();
-        BigDecimal subtotal =
-                unitPrice.multiply(BigDecimal.valueOf(quantity));
+        BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
 
         BigDecimal discountAmount = coupon == null
                 ? BigDecimal.ZERO
                 : returnDiscountAmount(coupon, item, subtotal);
 
-        BigDecimal finalAmount =
-                subtotal.subtract(discountAmount);
+        BigDecimal finalAmount = subtotal.subtract(discountAmount);
 
         return new PricingResult(
                 unitPrice,

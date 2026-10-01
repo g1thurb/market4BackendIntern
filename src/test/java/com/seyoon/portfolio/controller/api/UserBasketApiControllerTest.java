@@ -33,9 +33,11 @@ class UserBasketApiControllerTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.basketId").value(1))
-                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items.length()").value(2)) // delete할수도
                 .andExpect(jsonPath("$.items[0].itemCode").value(1))
-                .andExpect(jsonPath("$.items[0].quantity").value(2));
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[1].itemCode").value(2))
+                .andExpect(jsonPath("$.items[1].quantity").value(1));
     }
 
 
