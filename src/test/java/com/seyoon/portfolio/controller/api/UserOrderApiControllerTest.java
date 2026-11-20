@@ -1,7 +1,10 @@
 package com.seyoon.portfolio.controller.api;
 
+import com.seyoon.portfolio.support.CouponFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -21,6 +24,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class UserOrderApiControllerTest {
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void setUpCouponFixtures() {
+        CouponFixtures.refreshDueDates(jdbcTemplate);
+    }
 
     @Test
     void getUserBasketOrdersPreview_returns200AndOrdersPreviewResponse() throws Exception {

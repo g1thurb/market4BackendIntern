@@ -15,8 +15,11 @@ import com.seyoon.portfolio.exception.InsufficientStockException;
 import com.seyoon.portfolio.repository.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import com.seyoon.portfolio.support.CouponFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,6 +90,14 @@ class UserOrderServiceTest {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void setUpCouponFixtures() {
+        CouponFixtures.refreshDueDates(jdbcTemplate);
+    }
 
     private static final UUID BASKET_TEST_USER_UUID =
             UUID.fromString("33333333-3333-3333-3333-333333333333");
