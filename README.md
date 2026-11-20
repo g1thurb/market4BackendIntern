@@ -12,7 +12,7 @@ The application supports users, sellers, items, baskets, order previews, direct 
 
 - Transactional direct-purchase and basket-checkout flows
 - Atomic inventory decrement to prevent overselling
-- Concurrent last-item purchase test: two buyers compete for one unit and only one succeeds
+- Concurrency verification: 2–100 concurrent buyers against PostgreSQL; successful orders always equal available stock, with no negative inventory (see [Concurrency verification](#concurrency-verification))
 - Full rollback verification when one item in a multi-item basket cannot be purchased
 - Historical snapshots of item name, purchase price, shipping address, and coupon discount data
 - Coupon validation for missing, expired, mismatched, and duplicate-per-item cases
@@ -249,6 +249,77 @@ final available stock       = 0
 ```
 
 The test verifies the invariant instead of assuming that sequential unit tests are sufficient evidence for concurrent behavior.
+
+### Concurrency verification
+
+`UserOrderConcurrencyTest` extends the last-item race to several thread counts and a multi-unit stock case. All threads are held at a `CountDownLatch` and released together; each one calls `UserOrderService.newOrderItem(...)` for quantity 1 of the same item.
+
+**What each case asserts**
+
+- successful orders == available stock
+- every other request fails with `InsufficientStockException`
+- final `available` is `0` (never negative)
+- new rows in `orders` and `order_items` == number of successful orders
+- zero unexpected exceptions (connection timeouts, deadlocks, etc. are collected and fail the test)
+
+Successful orders are deleted and the original stock is restored after each case, as in the original test.
+
+**Experiment conditions**
+
+| | |
+|---|---|
+| Database | PostgreSQL 17.10 (local Windows service), isolation `READ COMMITTED`, `max_connections = 100` |
+| Connection pool | HikariCP, default `maximumPoolSize = 10` (read from the `HikariDataSource` at runtime) |
+| Runtime | Spring Boot 4.1, OpenJDK 21, `spring.jpa.show-sql=false` for this test class only |
+| Machine | Intel Core i7-1260P (12 cores / 16 threads), 32 GB RAM; app and DB on the same host |
+| Scope | Service layer called directly from test threads (no HTTP, no Spring Security filter chain) |
+| Runs | 3 runs of `gradlew test --tests '*UserOrderConcurrencyTest' --rerun`, 2026-11-20 |
+
+**Results** (all 3 runs passed every assertion)
+
+| Stock | Threads | Succeeded | Rejected (insufficient stock) | Unexpected | Final stock | orders / order_items created | Total time, 3 runs (ms) |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | 2 | 1 | 1 | 0 | 0 | 1 / 1 | 545.5 · 551.9 · 552.8 ¹ |
+| 1 | 10 | 1 | 9 | 0 | 0 | 1 / 1 | 21.7 · 28.4 · 43.0 |
+| 1 | 50 | 1 | 49 | 0 | 0 | 1 / 1 | 52.1 · 59.6 · 78.7 |
+| 1 | 100 | 1 | 99 | 0 | 0 | 1 / 1 | 84.0 · 87.7 · 124.4 |
+| 10 | 100 | 10 | 90 | 0 | 0 | 10 / 10 | 230.9 · 275.3 · 281.8 |
+
+Total time is measured from releasing the start latch until every worker has returned; cleanup is excluded.
+
+¹ The first case executed in the class absorbs JVM / Hibernate warm-up. In an earlier set of runs where the stock-10 case executed first, that case took 990–1,940 ms and the 2-thread case took 9–23 ms. The test order is now fixed with `@Order`, so read the 2-thread figure as a cold-start number, not as the cost of two concurrent orders.
+
+**Interpreting the numbers**
+
+- The conditional `UPDATE ... WHERE available >= :quantity` makes PostgreSQL serialize writers on the item row. A transaction that waits for the row lock re-evaluates the `WHERE` clause after the holder commits, so once stock reaches 0 the remaining updates match 0 rows and are rejected. No application-level lock or `SELECT ... FOR UPDATE` is involved.
+- With more threads (50, 100) than pool connections (10), at most 10 transactions talk to the database at once. The other threads wait inside `HikariPool.getConnection()`, and that wait is part of the measured time. Every run stayed well under Hikari's default 30 s `connectionTimeout`, which is why no unexpected exceptions appeared. A much larger thread count or slower transactions could turn that wait into `SQLTransientConnectionException`.
+- The stock-10 case is slower than stock-1 at the same thread count because 10 transactions actually insert a checkout, order and order item while holding the item row lock, and each rejected request has to wait for the commit ahead of it.
+
+**Limitations**
+
+- One local machine with the app and DB on the same host. No network latency, no multiple app instances, and no production-sized data.
+- The HTTP layer, request deserialization and the security filter chain are not included. These are service-level integration tests, not load tests.
+- 3 runs per case. The timings show the order of magnitude on this machine and are not a benchmark. Correctness (the assertions) is what the test guarantees.
+- Only single-item direct purchase (`newOrderItem`) with quantity 1 is exercised concurrently. Basket checkout is covered by the separate rollback test.
+
+### Index check: order item lookup
+
+`OrderItemRepository.findAllByOrderEntity_OrderId` filters `order_items` by `order_id`, which `idx_order_items_order_id` covers. The development database has no order rows, so the comparison used synthetic data inside one transaction that was rolled back afterwards: 10,000 orders and 100,000 order items (10 per order). Then:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM order_items WHERE order_id = :target;
+-- then DROP INDEX idx_order_items_order_id; (same transaction) and repeat
+ROLLBACK;
+```
+
+Each query was run twice. The table shows the second (warm) run:
+
+| | Plan | Rows removed by filter | Shared buffers hit | Execution time |
+|---|---|---:|---:|---:|
+| With index | Bitmap Index Scan → Bitmap Heap Scan | 0 | 12 | 0.022 ms |
+| Without index | Seq Scan | 99,990 | 935 | 3.573 ms |
+
+Caveats: `ANALYZE` was skipped because the application DB user does not own the tables, so the planner estimated 61 rows where 10 were returned. Timings are single local executions with all pages cached. The robust signal is the plan shape and the buffer count (12 vs 935 pages), not the exact milliseconds.
 
 ---
 

@@ -7,12 +7,22 @@ import com.seyoon.portfolio.repository.CheckoutRepository;
 import com.seyoon.portfolio.repository.ItemRepository;
 import com.seyoon.portfolio.repository.OrderItemRepository;
 import com.seyoon.portfolio.repository.OrderRepository;
+import com.zaxxer.hikari.HikariDataSource;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import javax.sql.DataSource;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -21,8 +31,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+/*
+ * show-sql은 측정 시간에 stdout 출력 비용이 섞이지 않도록 이 테스트에서만 끈다.
+ */
+@SpringBootTest(properties = "spring.jpa.show-sql=false")
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class UserOrderConcurrencyTest {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(UserOrderConcurrencyTest.class);
 
     @Autowired
     private UserOrderService userOrderService;
@@ -42,6 +59,9 @@ class UserOrderConcurrencyTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private DataSource dataSource;
+
     private static final UUID TEST_USER_UUID =
             UUID.fromString(
                     "11111111-1111-1111-1111-111111111111"
@@ -51,8 +71,32 @@ class UserOrderConcurrencyTest {
     private static final Long TEST_ADDRESS_ID = 3L;
     private static final Long TEST_PAYMENT_ID = 1L;
 
+    /*
+     * 마지막 재고 1개를 threadCount명이 동시에 구매한다.
+     * 정확히 1건만 성공해야 한다.
+     */
+    @Order(1)
+    @ParameterizedTest(name = "stock=1, threads={0}")
+    @ValueSource(ints = {2, 10, 50, 100})
+    void lastItemConcurrentPurchase_exactlyOneSucceeds(int threadCount)
+            throws Exception {
+
+        runConcurrentPurchase(1, threadCount);
+    }
+
+    /*
+     * 재고 N개를 그보다 많은 thread가 동시에 구매한다.
+     * 정확히 N건만 성공해야 한다.
+     */
+    @Order(2)
     @Test
-    void lastItemConcurrentPurchase_exactlyOneSucceeds()
+    void limitedStockConcurrentPurchase_exactlyStockSucceeds()
+            throws Exception {
+
+        runConcurrentPurchase(10, 100);
+    }
+
+    private void runConcurrentPurchase(int initialStock, int threadCount)
             throws Exception {
 
         // given
@@ -62,23 +106,25 @@ class UserOrderConcurrencyTest {
                         .getAvailable();
 
         jdbcTemplate.update(
-                "UPDATE items SET available = 1 WHERE item_code = ?",
+                "UPDATE items SET available = ? WHERE item_code = ?",
+                initialStock,
                 TEST_ITEM_ID
         );
 
-        int threadCount = 2;
+        long ordersBefore = countOrders();
+        long orderItemsBefore = countOrderItems();
 
         ExecutorService executor =
                 Executors.newFixedThreadPool(threadCount);
 
         /*
-         * 두 thread 모두 준비됐는지 확인
+         * 모든 thread가 준비됐는지 확인
          */
         CountDownLatch readyLatch =
                 new CountDownLatch(threadCount);
 
         /*
-         * 두 thread를 동시에 출발시키기 위한 latch
+         * 모든 thread를 동시에 출발시키기 위한 latch
          */
         CountDownLatch startLatch =
                 new CountDownLatch(1);
@@ -88,6 +134,19 @@ class UserOrderConcurrencyTest {
 
         AtomicInteger insufficientStockCount =
                 new AtomicInteger();
+
+        /*
+         * InsufficientStockException 이외의 예외.
+         * (예: 커넥션 풀 대기 timeout, deadlock 등)
+         */
+        ConcurrentLinkedQueue<Throwable> unexpectedExceptions =
+                new ConcurrentLinkedQueue<>();
+
+        /*
+         * thread별 요청 소요 시간 (startLatch 통과 ~ service 반환)
+         * 커넥션 대기 시간이 여기에 포함된다.
+         */
+        long[] requestNanos = new long[threadCount];
 
         /*
          * cleanup을 위해 성공한 주문들을 보관한다.
@@ -104,6 +163,8 @@ class UserOrderConcurrencyTest {
         try {
             for (int i = 0; i < threadCount; i++) {
 
+                final int index = i;
+
                 Future<Void> future =
                         executor.submit(() -> {
 
@@ -111,9 +172,11 @@ class UserOrderConcurrencyTest {
 
                             /*
                              * main thread가 startLatch를 열 때까지
-                             * 두 주문 모두 대기
+                             * 모든 주문 대기
                              */
                             startLatch.await();
+
+                            long begin = System.nanoTime();
 
                             try {
                                 CreateOrdersResponse response =
@@ -134,6 +197,14 @@ class UserOrderConcurrencyTest {
 
                                 insufficientStockCount
                                         .incrementAndGet();
+
+                            } catch (Throwable t) {
+
+                                unexpectedExceptions.add(t);
+
+                            } finally {
+                                requestNanos[index] =
+                                        System.nanoTime() - begin;
                             }
 
                             return null;
@@ -143,50 +214,81 @@ class UserOrderConcurrencyTest {
             }
 
             /*
-             * 두 thread가 모두 출발선까지 온 것을 확인한다.
+             * 모든 thread가 출발선까지 온 것을 확인한다.
              */
             assertTrue(
                     readyLatch.await(
-                            5,
+                            10,
                             TimeUnit.SECONDS
                     )
             );
 
             // when
+            long startedAt = System.nanoTime();
             startLatch.countDown();
 
             /*
-             * 두 주문이 모두 끝날 때까지 기다린다.
-             *
-             * unexpected exception이 발생하면
-             * future.get()에서 테스트가 실패한다.
+             * 모든 주문이 끝날 때까지 기다린다.
              */
             for (Future<Void> future : futures) {
                 future.get(
-                        10,
+                        60,
                         TimeUnit.SECONDS
                 );
             }
 
-            // then
-            assertEquals(
-                    1,
-                    successCount.get()
-            );
-
-            assertEquals(
-                    1,
-                    insufficientStockCount.get()
-            );
+            long elapsedNanos = System.nanoTime() - startedAt;
 
             int finalStock =
                     itemRepository.findById(TEST_ITEM_ID)
                             .orElseThrow()
                             .getAvailable();
 
+            long ordersCreated = countOrders() - ordersBefore;
+            long orderItemsCreated = countOrderItems() - orderItemsBefore;
+
+            logResult(
+                    initialStock,
+                    threadCount,
+                    successCount.get(),
+                    insufficientStockCount.get(),
+                    unexpectedExceptions.size(),
+                    finalStock,
+                    ordersCreated,
+                    orderItemsCreated,
+                    elapsedNanos,
+                    requestNanos
+            );
+
+            // then
+            assertTrue(
+                    unexpectedExceptions.isEmpty(),
+                    () -> "unexpected exceptions: " + unexpectedExceptions
+            );
+
+            assertEquals(
+                    initialStock,
+                    successCount.get()
+            );
+
+            assertEquals(
+                    threadCount - initialStock,
+                    insufficientStockCount.get()
+            );
+
             assertEquals(
                     0,
                     finalStock
+            );
+
+            assertEquals(
+                    successCount.get(),
+                    ordersCreated
+            );
+
+            assertEquals(
+                    successCount.get(),
+                    orderItemsCreated
             );
 
         } finally {
@@ -200,7 +302,7 @@ class UserOrderConcurrencyTest {
 
             try {
                 executor.awaitTermination(
-                        5,
+                        10,
                         TimeUnit.SECONDS
                 );
             } finally {
@@ -222,6 +324,55 @@ class UserOrderConcurrencyTest {
                 );
             }
         }
+    }
+
+    private long countOrders() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM orders WHERE user_uuid = ?",
+                Long.class,
+                TEST_USER_UUID
+        );
+        return count == null ? 0 : count;
+    }
+
+    private long countOrderItems() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM order_items WHERE item_code = ?",
+                Long.class,
+                TEST_ITEM_ID
+        );
+        return count == null ? 0 : count;
+    }
+
+    private void logResult(
+            int initialStock,
+            int threadCount,
+            int success,
+            int rejected,
+            int unexpected,
+            int finalStock,
+            long ordersCreated,
+            long orderItemsCreated,
+            long elapsedNanos,
+            long[] requestNanos
+    ) {
+        int poolSize = dataSource instanceof HikariDataSource hikari
+                ? hikari.getMaximumPoolSize()
+                : -1;
+
+        long[] sorted = requestNanos.clone();
+        Arrays.sort(sorted);
+        double p50Ms = sorted[sorted.length / 2] / 1_000_000.0;
+        double maxMs = sorted[sorted.length - 1] / 1_000_000.0;
+
+        log.info(String.format(
+                "[CONCURRENCY] stock=%d threads=%d pool=%d success=%d rejected=%d "
+                        + "unexpected=%d finalStock=%d ordersCreated=%d orderItemsCreated=%d "
+                        + "totalMs=%.1f requestP50Ms=%.1f requestMaxMs=%.1f",
+                initialStock, threadCount, poolSize, success, rejected,
+                unexpected, finalStock, ordersCreated, orderItemsCreated,
+                elapsedNanos / 1_000_000.0, p50Ms, maxMs
+        ));
     }
 
     private void cleanupSuccessfulOrders(
