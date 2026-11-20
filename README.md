@@ -15,9 +15,9 @@ The application supports users, sellers, items, baskets, order previews, direct 
 - Concurrency verification: 2–100 concurrent buyers against PostgreSQL; successful orders always equal available stock, with no negative inventory (see [Concurrency verification](#concurrency-verification))
 - Full rollback verification when one item in a multi-item basket cannot be purchased
 - Historical snapshots of item name, purchase price, shipping address, and coupon discount data
-- Coupon validation for missing, expired, mismatched, and duplicate-per-item cases
+- Coupon validation for missing, expired, mismatched, and duplicate-per-item cases (missing and expired cases are covered by tests; see [Testing Strategy](#testing-strategy))
 - Basket checkout grouped by seller and persisted as separate orders under one checkout
-- Integration tests against PostgreSQL with deterministic fixtures and transaction rollback
+- Integration tests against PostgreSQL with per-test transaction rollback (seed rows live in the local development database; see [Deterministic database fixtures](#deterministic-database-fixtures))
 - MockMvc API tests for success and failure paths
 - Dockerized Spring Boot + PostgreSQL environment
 - Local Kubernetes deployment with Minikube, Deployment/Service wiring, and Pod self-healing verification
@@ -238,7 +238,7 @@ Initial state:
 available = 1
 ```
 
-Two worker threads are synchronized so they attempt the same purchase concurrently.
+The original test synchronized two worker threads so they attempted the same purchase concurrently. It has since been extended to 2–100 threads (see [Concurrency verification](#concurrency-verification) below).
 
 Expected invariant:
 
@@ -491,12 +491,11 @@ The completed test suite includes coverage for areas such as:
 - direct purchase with coupon
 - basket purchase success
 - price/name/address snapshot preservation
-- invalid coupon
+- invalid (non-existent) coupon
 - expired coupon
-- coupon/item mismatch
 - insufficient stock
 - basket rollback after a later stock failure
-- concurrent purchase of the final unit
+- concurrent purchase with 2–100 threads (last unit and multi-unit stock)
 - basket repository/service behavior
 - basket controller behavior
 - order preview API
@@ -506,7 +505,14 @@ The completed test suite includes coverage for areas such as:
 - insufficient-stock HTTP responses
 - invalid request JSON / error handling
 
-The Gradle test suite is currently passing.
+Coupon rules that are implemented but **not yet covered by tests**:
+
+- coupon/item mismatch
+- more than one coupon for the same item
+- rejection of supplied coupons that match no basket line
+- percentage discounts and discount limits
+
+As of 2026-11-20 the full Gradle suite (38 tests) passes against the developer's local database. It does not pass on a fresh clone without seed data; see the next section.
 
 ## Deterministic database fixtures
 
@@ -522,7 +528,7 @@ That is fragile because PostgreSQL sequences are not rolled back just because th
 
 The tests were changed to:
 
-1. establish the required fixture state in `@BeforeEach`
+1. adjust the fixture state they depend on in `@BeforeEach` (basket tests, and since 2026-11-20 coupon due dates in the order tests)
 2. query entities through domain identifiers such as the user UUID rather than hard-coded generated IDs
 3. execute each normal integration test inside a test transaction
 4. roll the fixture and test mutations back after the test
@@ -530,6 +536,10 @@ The tests were changed to:
 Concurrency and service-rollback tests that need to observe real transaction boundaries are kept separate from an outer test transaction and explicitly restore their modified state.
 
 This removed order-dependent test failures caused by shared development data.
+
+**Known limitation: seed data is not in the repository.** The tests expect existing rows (test users, a seller, items, saved addresses and payments, and coupons such as `TEST_PRICE_1000`) in the local database at `localhost:5433`. `docker/init.sql` is schema-only, and the Compose database listens on port 5434, so a fresh clone cannot run the suite without first inserting that data.
+
+Coupon rows also had absolute due dates, so six coupon-dependent tests started failing once those dates passed (2026-10-28). `CouponFixtures.refreshDueDates` now sets due dates relative to `now()` inside each test transaction, and `TEST_EXPIRED` is always set to yesterday.
 
 ---
 
@@ -946,7 +956,12 @@ The transactional guarantees demonstrated in this repository apply to the Postgr
 
 # Development Process and AI Assistance
 
-This project used ChatGPT as a **pair-programming, review, and learning tool**. The distinction between project ownership and AI assistance is documented here deliberately.
+This project used two AI tools at different stages. The distinction between project ownership and AI assistance is documented here deliberately.
+
+- **ChatGPT** (July–October 2026): a pair-programming, review, and learning tool. It never ran anything in the repository.
+- **Claude Code** (2026-11-20): a coding agent that wrote code, ran tests and SQL against the local environment, and created commits at the owner's direction. See [Work performed by Claude Code](#work-performed-by-claude-code-2026-11-20).
+
+A more detailed breakdown, including how certain each attribution is, is in [`docs/authorship-and-readme-review.md`](docs/authorship-and-readme-review.md).
 
 ## Work performed by the project owner
 
@@ -962,7 +977,7 @@ The project owner:
 - made design decisions around transaction boundaries and order-history snapshots
 - ran the application and database locally throughout development
 - integrated tests into the codebase, interpreted failures, and fixed application/test-fixture issues
-- executed the complete Gradle test suite until it passed
+- executed the complete Gradle test suite until it passed (through October 2026; the 2026-11-20 test runs were executed by Claude Code)
 - built and ran the Docker image and Docker Compose environment
 - installed/configured Minikube, deployed the application, inspected failures, corrected configuration, called the API, and manually verified Pod replacement
 - made the final decisions about which suggested changes to keep or reject
@@ -991,6 +1006,28 @@ ChatGPT was used for:
 In particular, some test and infrastructure configuration code was AI-drafted rather than typed from scratch by the project owner. The owner reviewed, integrated, executed, debugged, and validated that code in the actual project.
 
 ChatGPT did **not** autonomously build or run the repository, make final project decisions, or independently verify behavior outside the development sessions performed by the owner.
+
+## Work performed by Claude Code (2026-11-20)
+
+Unlike the ChatGPT sessions, Claude Code worked directly in the repository. In that session:
+
+**The owner**
+
+- defined the goal and requirements: thread counts, the multi-unit stock case, the invariants to assert, the README structure, and the rule that no unmeasured number may be reported
+- approved the plan before any code changed
+- chose to fix expired coupon fixtures in test code rather than in the database
+- asked for the work to be split into two commits, and handles pushing personally
+
+**Claude Code**
+
+- wrote the parameterized concurrency tests and the stock-10 case in `UserOrderConcurrencyTest`
+- ran the tests repeatedly and produced every number in [Concurrency verification](#concurrency-verification), including finding the warm-up effect and fixing the test order
+- ran the `EXPLAIN (ANALYZE, BUFFERS)` comparison on synthetic data (rolled back afterwards) and wrote the index section
+- diagnosed the six failing coupon tests and wrote `CouponFixtures`
+- wrote the Concurrency verification section and the corrections in this README
+- created commits `b7c70e6` and `ddf621a` under the owner's git identity, with a `Co-Authored-By` trailer
+
+The owner did not type the code or prose from this session. The owner reviewed the results and can explain the mechanisms behind them: row-lock serialization with `WHERE` re-evaluation under READ COMMITTED, connection-pool waits, and warm-up effects.
 
 This disclosure is included because the project is intended to represent both the owner's backend engineering work and the actual development process accurately.
 
